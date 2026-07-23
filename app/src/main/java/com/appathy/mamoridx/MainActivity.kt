@@ -4,11 +4,13 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -68,8 +70,11 @@ class MainActivity : Activity() {
 
     private var cachedApps: List<AppRisk>? = null
 
+    private val VPN_REQUEST = 1001
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DnsLogStore.load(applicationContext)
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -98,16 +103,17 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(8), 0, dp(8), dp(8))
         }
-        val tabNames = listOf("アプリ棚卸し", "端末診断", "説明書")
+        val tabNames = listOf("アプリ棚卸し", "端末診断", "通信ログ", "説明書")
         tabButtons = tabNames.mapIndexed { index, name ->
             Button(this).apply {
                 text = name
-                textSize = 13f
+                textSize = 11f
                 isAllCaps = false
+                setPadding(0, 0, 0, 0)
                 setTextColor(textColor)
                 setBackgroundColor(cardColor)
                 layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).apply {
-                    setMargins(dp(4), 0, dp(4), 0)
+                    setMargins(dp(3), 0, dp(3), 0)
                 }
                 setOnClickListener { showTab(index) }
             }
@@ -128,6 +134,7 @@ class MainActivity : Activity() {
     }
 
     private fun showTab(index: Int) {
+        currentTab = index
         tabButtons.forEachIndexed { i, b ->
             b.setBackgroundColor(if (i == index) accentColor else cardColor)
             b.setTextColor(if (i == index) Color.BLACK else textColor)
@@ -136,7 +143,8 @@ class MainActivity : Activity() {
         when (index) {
             0 -> contentArea.addView(buildInventoryView())
             1 -> contentArea.addView(buildPostureView())
-            2 -> contentArea.addView(buildManualView())
+            2 -> contentArea.addView(buildCommsView())
+            3 -> contentArea.addView(buildManualView())
         }
     }
 
@@ -439,19 +447,212 @@ class MainActivity : Activity() {
             "×が付いた項目には対処方法を表示します。特に「画面ロック未設定」と" +
             "「セキュリティパッチが半年以上前」は優先して対応してください。")
 
+        section("通信ログタブの見方（Phase 2）",
+            "端末内VPNの仕組みを使って、アプリがどのドメイン（SaaS等）へ通信しようとしたかをDNSレベルで記録します。\n\n" +
+            "使い方:\n" +
+            "①「記録を開始」を押す\n" +
+            "②Androidの「VPN接続の許可」ダイアログでOK\n" +
+            "③通知バーに『通信記録中』が出ている間、記録されます\n" +
+            "④棚卸しが済んだら「記録を停止」\n\n" +
+            "各ドメインに「許可 / 記録のみ / ブロック」を設定できます。" +
+            "これが守りのDXの核心で、有益なSaaSは『許可』、様子見は『記録のみ』と仕分けます。\n\n" +
+            "【重要・記録専用モードについて】\n" +
+            "現バージョンは安定性を優先し、記録中は端末の通信を実際には流さない『記録専用』設計です。" +
+            "そのため常時ONではなく、通信先を棚卸ししたい時だけONにする使い方になります。" +
+            "また「ブロック」指定は現在ポリシーの記録のみで、実際の遮断はPhase 2.5で対応します。")
+
         section("このアプリが集めない情報",
-            "このアプリは通信権限を持たず、外部に一切データを送信しません。" +
-            "診断結果はすべて端末内で計算され、保存もされません。" +
-            "アプリを閉じれば結果は消えます。")
+            "記録したDNSログとポリシーは、すべて端末内(SharedPreferences)にのみ保存され、" +
+            "外部へは一切送信しません。VPNは端末内で完結し、外部のVPNサーバーには接続しません。" +
+            "「ログを消去」でいつでも全削除できます。")
 
         section("今後のロードマップ",
-            "Phase 2: 通信の可視化（どのアプリがどのSaaSと通信しているかをDNSレベルで記録）\n" +
+            "Phase 2.5: ブロックポリシーの実効化と、通信の実転送（常時ON対応）\n" +
             "Phase 3: 漏洩ガード（共有時にマイナンバー・クレカ番号・社外秘キーワードを検査する関所機能）")
 
         section("Appathy",
             "Less Motivation, More Automation.\n本アプリはスマホのみ（Termux + GitHub Actions）で開発されています。")
 
         return ScrollView(this).apply { addView(list) }
+    }
+
+    // =========================================================
+    // タブ3: 通信ログ（Phase 2 / A案・記録専用VPN）
+    // =========================================================
+    private fun buildCommsView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        val active = DnsMonitorService.isRunning
+
+        // 記録の開始/停止カード
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = if (active) "● 通信を記録中" else "○ 記録は停止中"
+                textSize = 15f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(if (active) greenColor else subColor)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "記録専用モードです。記録中は端末の通信が流れません。" +
+                    "通信先を棚卸ししたい時だけONにし、終わったらOFFにしてください。"
+                textSize = 12f
+                setTextColor(subColor)
+                setPadding(0, dp(6), 0, dp(8))
+            })
+            addView(Button(this@MainActivity).apply {
+                text = if (active) "記録を停止" else "記録を開始"
+                textSize = 14f
+                isAllCaps = false
+                setTextColor(Color.BLACK)
+                setBackgroundColor(if (active) yellowColor else greenColor)
+                setOnClickListener {
+                    if (active) stopVpn() else startVpn()
+                }
+            })
+        })
+
+        val entries = DnsLogStore.snapshot()
+
+        // サマリー＋クリア
+        list.addView(card().apply {
+            addView(row("記録済みドメイン", "${entries.size} 件", accentColor))
+            addView(Button(this@MainActivity).apply {
+                text = "ログを消去"
+                textSize = 13f
+                isAllCaps = false
+                setTextColor(textColor)
+                setBackgroundColor(bgColor)
+                setPadding(dp(12), dp(6), dp(12), dp(6))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(8) }
+                setOnClickListener {
+                    DnsLogStore.clear(applicationContext)
+                    showTab(2)
+                }
+            })
+        })
+
+        if (entries.isEmpty()) {
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = "まだ記録がありません。\n「記録を開始」を押してVPNを許可し、" +
+                        "しばらく他アプリを使うと、通信先ドメインがここに一覧表示されます。"
+                    textSize = 13f
+                    setTextColor(textColor)
+                })
+            })
+        } else {
+            entries.forEach { e ->
+                val policy = DnsLogStore.getPolicy(e.domain)
+                list.addView(card().apply {
+                    addView(TextView(this@MainActivity).apply {
+                        text = e.domain
+                        textSize = 14f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(textColor)
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = "問い合わせ ${e.count} 回"
+                        textSize = 12f
+                        setTextColor(subColor)
+                        setPadding(0, dp(2), 0, dp(6))
+                    })
+                    addView(buildPolicyRow(e.domain, policy))
+                })
+            }
+        }
+
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    private fun buildPolicyRow(domain: String, current: Int): View {
+        val rowL = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val labels = listOf(
+            "許可" to DnsLogStore.POLICY_ALLOW,
+            "記録のみ" to DnsLogStore.POLICY_RECORD,
+            "ブロック" to DnsLogStore.POLICY_BLOCK
+        )
+        labels.forEach { (label, value) ->
+            rowL.addView(Button(this).apply {
+                text = label
+                textSize = 12f
+                isAllCaps = false
+                val selected = current == value
+                setTextColor(if (selected) Color.BLACK else textColor)
+                setBackgroundColor(
+                    if (selected) when (value) {
+                        DnsLogStore.POLICY_ALLOW -> greenColor
+                        DnsLogStore.POLICY_BLOCK -> redColor
+                        else -> accentColor
+                    } else bgColor
+                )
+                layoutParams = LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
+                }
+                setOnClickListener {
+                    DnsLogStore.setPolicy(applicationContext, domain, value)
+                    if (value == DnsLogStore.POLICY_BLOCK) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("ブロック設定を記録しました")
+                            .setMessage("このドメインを「ブロック」に指定しました。" +
+                                "現バージョン(A案)ではポリシーの記録のみで、実際の遮断は行いません。" +
+                                "遮断の実効化はPhase 2.5で対応予定です。")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                    showTab(2)
+                }
+            })
+        }
+        return rowL
+    }
+
+    // ===== VPN制御 =====
+    private fun startVpn() {
+        val intent = VpnService.prepare(this)
+        if (intent != null) {
+            // 初回はシステムのVPN許可ダイアログを表示
+            startActivityForResult(intent, VPN_REQUEST)
+        } else {
+            onActivityResult(VPN_REQUEST, Activity.RESULT_OK, null)
+        }
+    }
+
+    private fun stopVpn() {
+        val i = Intent(this, DnsMonitorService::class.java).apply {
+            action = DnsMonitorService.ACTION_STOP
+        }
+        startService(i)
+        // UIを少し遅らせて更新
+        contentArea.postDelayed({ if (currentTab == 2) showTab(2) }, 300)
+    }
+
+    private var currentTab = 0
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == VPN_REQUEST && resultCode == Activity.RESULT_OK) {
+            val i = Intent(this, DnsMonitorService::class.java).apply {
+                action = DnsMonitorService.ACTION_START
+            }
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
+            contentArea.postDelayed({ if (currentTab == 2) showTab(2) }, 500)
+        } else if (requestCode == VPN_REQUEST) {
+            AlertDialog.Builder(this)
+                .setTitle("VPNが許可されませんでした")
+                .setMessage("通信記録にはVPNの許可が必要です。" +
+                    "記録専用で外部送信は行いません（説明書タブ参照）。")
+                .setPositiveButton("OK", null)
+                .show()
+        }
     }
 
     // ===== UI部品 =====
