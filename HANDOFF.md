@@ -1,6 +1,8 @@
 # MamoriDX（守りのDX 2.0）HANDOFF
 
-## 現在バージョン: v3.0（Phase 3 / 関所・漏洩ガード）
+## 現在バージョン: v3.1（アイコン追加・説明書を機能別5ページ構成に刷新）
+- アイコン: res/mipmap-*/ic_launcher.png（DFDX2.0デザイン、PNG5密度、PILで生成）
+- 説明書タブ: 概要/棚卸し/診断/通信/関所 の5ページ切替式。各ページに「これは何？→使い方手順（手順1から）→見方→FAQ」構成
 
 ## Phase 3 実装メモ
 - `ShareGateActivity`: ACTION_SEND (text/plain, image/*) を受ける関所。exported=true、label「守りのDX関所」
