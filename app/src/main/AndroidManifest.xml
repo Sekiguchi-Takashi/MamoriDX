@@ -20,6 +20,23 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ShareGateActivity"
+            android:label="守りのDX関所"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".DnsMonitorService"
             android:permission="android.permission.BIND_VPN_SERVICE"

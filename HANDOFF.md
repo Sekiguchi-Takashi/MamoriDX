@@ -1,6 +1,14 @@
 # MamoriDX（守りのDX 2.0）HANDOFF
 
-## 現在バージョン: v2.0（Phase 2 / A案・記録専用VPN）
+## 現在バージョン: v3.0（Phase 3 / 関所・漏洩ガード）
+
+## Phase 3 実装メモ
+- `ShareGateActivity`: ACTION_SEND (text/plain, image/*) を受ける関所。exported=true、label「守りのDX関所」
+- テキスト検査: 全角→半角正規化後、数字列（ハイフン/スペース区切り許容）を抽出し、12桁=マイナンバー（JISチェックデジット検証、テスト値123456789018で確認済）、14-16桁=クレカ（Luhn）。機密キーワード（社外秘/部外秘/極秘/マル秘/機密/取扱注意/confidential等）
+- 画像検査: ExifInterface(InputStream)でTAG_GPS_LATITUDEの有無を確認
+- 検出時アクション: マスクして転送（末尾4桁以外を*化）/ そのまま転送 / 中止。SNSアプリ（X/Instagram/Facebook/LINE/TikTok）導入端末では追加警告
+- 転送はcreateChooser + EXTRA_EXCLUDE_COMPONENTSで自分自身を除外（無限ループ防止）
+- 検査は全て端末内完結・外部送信なし
 
 ## デプロイ規約（v1.1から・Appathy標準）
 - 各ZIPのプロジェクト直下に `deploy.sh` を同梱する
@@ -17,7 +25,7 @@
 - **Phase 1（実装済）**: 可視化。アプリ棚卸し（3分類）＋端末診断（6項目A/B/C判定）＋アプリ内説明書
 - **Phase 2（本バージョン・A案）**: VpnServiceによるDNS可視化。「通信ログ」タブを追加。記録専用モード（パケットは転送せずDNSクエリ名のみ抽出、VPN有効中は通信が流れない）。ドメイン単位で「許可/記録のみ/ブロック」ポリシーをSharedPreferencesに保存。ブロックは現状ポリシー記録のみ（実遮断なし）
 - **Phase 2.5（未着手）**: ブロックの実効化＋パケット実転送（B案・常時ON対応）。TCP/UDP転送を自前実装
-- **Phase 3（未着手）**: 共有インテントに割り込む関所（DLP）。マイナンバー（チェックデジット検証）、クレカ番号（Luhn）、「社外秘」等キーワード検査。SNS宛のみ警告強化
+- **Phase 3（本バージョンで実装済）**: 共有インテントに割り込む関所（DLP）。マイナンバー（チェックデジット検証）、クレカ番号（Luhn）、「社外秘」等キーワード検査。SNS宛のみ警告強化
 
 ## Phase 2 実装メモ（A案）
 - `DnsMonitorService`(VpnService): Builder で addRoute("0.0.0.0",0)+setBlocking(true)。establish後、入力FDをreadしIPv4/UDP/dport53のパケットのみDNSパース。QNAMEをラベル長方式で抽出しDnsLogStore.recordへ。**パケットは書き戻さない=記録専用（A案）**。自パッケージはaddDisallowedApplicationで除外
