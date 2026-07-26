@@ -98,6 +98,19 @@ class ShareGateActivity : Activity() {
                 findings.add(Finding("機密キーワード", "「$kw」を含んでいます", kw))
             }
         }
+
+        // URLの安全性（オフライン検査）
+        val url = UrlChecker.extractUrl(text)
+        if (url != null) {
+            val r = UrlChecker.analyze(url)
+            if (r.level != UrlChecker.LEVEL_SAFE) {
+                val head = if (r.level == UrlChecker.LEVEL_DANGER)
+                    "危険なリンクの疑い" else "リンクに注意点あり"
+                val body = "接続先: ${r.host}\n" +
+                    r.findings.joinToString("\n") { "・${it.title}" }
+                findings.add(Finding("リンク検査", "$head\n$body", url))
+            }
+        }
         return findings
     }
 
@@ -240,7 +253,10 @@ class ShareGateActivity : Activity() {
 
         // アクションボタン
         val isText = type.startsWith("text/")
-        if (danger && isText && findings.any { it.type != "機密キーワード" }) {
+        val hasNumberFinding = findings.any {
+            it.type == "マイナンバー" || it.type == "クレジットカード"
+        }
+        if (danger && isText && hasNumberFinding) {
             list.addView(actionButton("マスクして転送（推奨）", greenColor) {
                 forwardText(maskedText())
             })

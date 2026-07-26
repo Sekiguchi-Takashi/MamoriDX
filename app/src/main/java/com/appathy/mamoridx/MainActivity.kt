@@ -10,10 +10,13 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.EditText
+import android.widget.Toast
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -103,7 +106,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(8), 0, dp(8), dp(8))
         }
-        val tabNames = listOf("アプリ棚卸し", "端末診断", "通信ログ", "説明書")
+        val tabNames = listOf("棚卸し", "端末診断", "通信ログ", "緊急対応", "説明書")
         tabButtons = tabNames.mapIndexed { index, name ->
             Button(this).apply {
                 text = name
@@ -144,7 +147,8 @@ class MainActivity : Activity() {
             0 -> contentArea.addView(buildInventoryView())
             1 -> contentArea.addView(buildPostureView())
             2 -> contentArea.addView(buildCommsView())
-            3 -> contentArea.addView(buildManualView())
+            3 -> contentArea.addView(buildEmergencyView())
+            4 -> contentArea.addView(buildManualView())
         }
     }
 
@@ -411,7 +415,7 @@ class MainActivity : Activity() {
         }
 
         // 説明書内のページ切替（機能ごと）
-        val pageNames = listOf("概要", "棚卸し", "診断", "通信", "関所")
+        val pageNames = listOf("概要", "棚卸し", "診断", "通信", "緊急", "関所")
         val selector = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(12), 0, dp(12), dp(8))
@@ -430,7 +434,7 @@ class MainActivity : Activity() {
                 }
                 setOnClickListener {
                     manualPage = i
-                    showTab(3)
+                    showTab(4)
                 }
             })
         }
@@ -587,8 +591,69 @@ class MainActivity : Activity() {
                     "ログは端末内保存・外部送信なし・最大500件です。")
             }
 
-            // ---------- 関所 ----------
+            // ---------- 緊急対応 ----------
             4 -> {
+                section("緊急対応タブ｜これは何？",
+                    "怪しいリンクを踏んでしまった／踏みそうな時のための機能です。" +
+                    "「開く前の検査」「踏んだ後の侵害チェック」「応急処置の手順」の3つが入っています。")
+
+                section("① リンク検査の使い方手順",
+                    "手順1. 怪しいリンクを長押しして「リンクをコピー」を選ぶ（開かないこと）\n" +
+                    "手順2. 緊急対応タブの入力欄に長押しで貼り付ける\n" +
+                    "手順3. 「このリンクを検査」を押す\n" +
+                    "手順4. 結果画面で判定と理由を確認する\n\n" +
+                    "共有メニューから『守りのDX関所』を選んでも、リンクは自動で検査されます。")
+
+                section("① リンク検査の見方",
+                    "判定は3段階です。\n" +
+                    "・危険 = 開かないでください\n" +
+                    "・注意 = 理由を読んで慎重に判断\n" +
+                    "・明らかな危険信号なし\n\n" +
+                    "「実際の接続先」の表示が最重要です。文面がどんなに本物らしくても、" +
+                    "ここが公式ドメインでなければ偽サイトです。\n\n" +
+                    "主な検出項目: 有名企業名を含む偽ドメイン、@を使った偽装、" +
+                    "Punycode（そっくり文字）、IPアドレス直打ち、短縮URL、" +
+                    "危険度の高いドメイン種別、APKの直接ダウンロード、暗号化なし(http)。\n\n" +
+                    "【重要】判定は端末内のパターン照合のみで行うため、" +
+                    "『危険信号なし＝安全』ではありません。新種の詐欺サイトや、" +
+                    "正規サイトが乗っ取られている場合は検出できません。" +
+                    "ログインやカード入力は、リンクからではなく公式アプリやブックマークから行ってください。")
+
+                section("② 侵害チェックの使い方手順",
+                    "手順1. 「直近24時間」か「直近7日間」を選ぶ（踏んだ時期に合わせる）\n" +
+                    "手順2. 「侵害チェックを実行」を押す\n" +
+                    "手順3. 検出された項目を上から順に確認する（赤が最優先）\n" +
+                    "手順4. 各カードのボタンから、削除や設定画面へ直接移動できる\n" +
+                    "手順5. 対処後にもう一度実行して、消えたことを確認する")
+
+                section("② 侵害チェックの見方",
+                    "確認する6分類:\n" +
+                    "・最近入ったアプリ = 踏んだ後に勝手に入っていないか\n" +
+                    "・ユーザー補助が有効 = 画面の盗み見と自動操作ができる最危険権限\n" +
+                    "・通知の読み取りが有効 = SMSの認証コードを盗まれる恐れ\n" +
+                    "・端末管理者アプリ = 削除を妨害される。身に覚えがなければ即無効化\n" +
+                    "・アプリを追加インストールできる = 再侵入の入口\n" +
+                    "・既定のSMSアプリ／ブラウザ = 乗っ取られるとリンクや認証コードを横取りされる\n\n" +
+                    "色の意味: 赤=至急対応、黄=確認推奨、灰=標準アプリのため通常は問題なし。")
+
+                section("③ 応急処置チェックリスト",
+                    "踏んだ直後は手順1から順に対応してください。" +
+                    "手順1〜4と手順9はボタンから設定画面へ直接移動できます。\n\n" +
+                    "特に重要な3点:\n" +
+                    "・偽サイトにID/パスワードを入力した場合は、必ずパスワード変更（別の安全な端末から）\n" +
+                    "・使い回している他サービスのパスワードもすべて変更\n" +
+                    "・会社の端末なら隠さず即報告。『日時・URL・入力の有無・入れたアプリ』を伝える")
+
+                section("できないこと（正直な限界）",
+                    "このアプリは、既に盗まれた情報を取り戻すことはできません。" +
+                    "また、端末の奥深くに潜む高度なマルウェアの検出や駆除もできません。" +
+                    "検出項目に該当がなくても症状（勝手な操作、身に覚えのない通知や請求）が続く場合は、" +
+                    "データのバックアップ後に端末の初期化を検討し、" +
+                    "会社端末なら情報システム部門へ相談してください。")
+            }
+
+            // ---------- 関所 ----------
+            5 -> {
                 section("関所（漏洩ガード）｜これは何？",
                     "他のアプリからテキストや画像を共有するときに一度経由させる『検問所』です。" +
                     "マイナンバーやカード番号、機密キーワードが含まれていないか転送前に検査します。" +
@@ -767,6 +832,357 @@ class MainActivity : Activity() {
             })
         }
         return rowL
+    }
+
+    // =========================================================
+    // タブ4: 緊急対応（怪しいリンクを踏んだ時）
+    // =========================================================
+    private var emergencyHours = 24
+    private var emergencyScanned = false
+    private var urlInputText = ""
+
+    private fun buildEmergencyView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        // ---------- ① リンク検査 ----------
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "① リンクを開く前に検査"
+                textSize = 15f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(accentColor)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "怪しいURLを貼り付けて検査します。端末内だけで判定し、URLを外部に送信しません。"
+                textSize = 12f
+                setTextColor(subColor)
+                setPadding(0, dp(4), 0, dp(8))
+            })
+            val input = EditText(this@MainActivity).apply {
+                hint = "https://..."
+                textSize = 13f
+                setTextColor(textColor)
+                setHintTextColor(subColor)
+                setBackgroundColor(bgColor)
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                setText(urlInputText)
+            }
+            addView(input)
+            addView(Button(this@MainActivity).apply {
+                text = "このリンクを検査"
+                textSize = 14f
+                isAllCaps = false
+                setTextColor(Color.BLACK)
+                setBackgroundColor(accentColor)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
+                ).apply { topMargin = dp(8) }
+                setOnClickListener {
+                    urlInputText = input.text.toString()
+                    if (urlInputText.isBlank()) {
+                        Toast.makeText(this@MainActivity,
+                            "URLを入力してください", Toast.LENGTH_SHORT).show()
+                    } else {
+                        showUrlResult(UrlChecker.analyze(urlInputText))
+                    }
+                }
+            })
+        })
+
+        // ---------- ② 侵害チェック ----------
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "② 踏んでしまった後の侵害チェック"
+                textSize = 15f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(accentColor)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "乗っ取りの足がかりになる設定を一括で確認します。\n対象期間: 直近" +
+                    (if (emergencyHours == 24) "24時間" else "7日間")
+                textSize = 12f
+                setTextColor(subColor)
+                setPadding(0, dp(4), 0, dp(8))
+            })
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                listOf("直近24時間" to 24, "直近7日間" to 168).forEach { (lbl, h) ->
+                    addView(Button(this@MainActivity).apply {
+                        text = lbl
+                        textSize = 12f
+                        isAllCaps = false
+                        val sel = emergencyHours == h
+                        setTextColor(if (sel) Color.BLACK else textColor)
+                        setBackgroundColor(if (sel) accentColor else bgColor)
+                        layoutParams = LinearLayout.LayoutParams(0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            setMargins(dp(2), 0, dp(2), 0)
+                        }
+                        setOnClickListener {
+                            emergencyHours = h
+                            emergencyScanned = true
+                            showTab(3)
+                        }
+                    })
+                }
+            })
+            addView(Button(this@MainActivity).apply {
+                text = "侵害チェックを実行"
+                textSize = 14f
+                isAllCaps = false
+                setTextColor(Color.BLACK)
+                setBackgroundColor(redColor)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
+                ).apply { topMargin = dp(8) }
+                setOnClickListener {
+                    emergencyScanned = true
+                    showTab(3)
+                }
+            })
+        })
+
+        if (emergencyScanned) {
+            val threats = ThreatScanner.scan(applicationContext, emergencyHours)
+            val crit = threats.count { it.severity == ThreatScanner.SEV_CRIT }
+
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = when {
+                        threats.isEmpty() -> "✓ 気になる項目は見つかりませんでした"
+                        crit > 0 -> "⚠ 至急確認すべき項目が ${crit} 件あります"
+                        else -> "確認をおすすめする項目が ${threats.size} 件あります"
+                    }
+                    textSize = 15f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(when {
+                        threats.isEmpty() -> greenColor
+                        crit > 0 -> redColor
+                        else -> yellowColor
+                    })
+                })
+                if (threats.isEmpty()) {
+                    addView(TextView(this@MainActivity).apply {
+                        text = "ただし、この検査は端末側の変化を見るものです。" +
+                            "偽サイトでIDやパスワードを入力してしまった場合は、" +
+                            "下の応急処置に沿ってパスワード変更を必ず行ってください。"
+                        textSize = 12f
+                        setTextColor(subColor)
+                        setPadding(0, dp(6), 0, 0)
+                    })
+                }
+            })
+
+            threats.forEach { t ->
+                val sevColor = when (t.severity) {
+                    ThreatScanner.SEV_CRIT -> redColor
+                    ThreatScanner.SEV_WARN -> yellowColor
+                    else -> subColor
+                }
+                list.addView(card().apply {
+                    addView(TextView(this@MainActivity).apply {
+                        text = "【${t.category}】"
+                        textSize = 12f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(sevColor)
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = t.title
+                        textSize = 15f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(textColor)
+                        setPadding(0, dp(2), 0, dp(2))
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = t.detail
+                        textSize = 12f
+                        setTextColor(textColor)
+                    })
+                    val aLabel = t.actionLabel
+                    if (aLabel != null) {
+                        addView(Button(this@MainActivity).apply {
+                            text = aLabel
+                            textSize = 13f
+                            isAllCaps = false
+                            setTextColor(Color.BLACK)
+                            setBackgroundColor(sevColor)
+                            layoutParams = LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT, dp(42)
+                            ).apply { topMargin = dp(8) }
+                            setOnClickListener { runThreatAction(t) }
+                        })
+                    }
+                })
+            }
+        }
+
+        // ---------- ③ 応急処置チェックリスト ----------
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "③ 応急処置チェックリスト"
+                textSize = 15f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(accentColor)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "リンクを踏んでしまった直後は、上から順に対応してください。"
+                textSize = 12f
+                setTextColor(subColor)
+                setPadding(0, dp(4), 0, 0)
+            })
+        })
+
+        data class Step(val no: Int, val title: String, val body: String,
+                        val btn: String?, val act: (() -> Unit)?)
+
+        val steps = listOf(
+            Step(1, "通信を止める",
+                "まず機内モードをONにして、情報の送信と追加ダウンロードを止めます。" +
+                "既にアプリを入れてしまった場合は特に有効です。",
+                "無線とネットワークの設定を開く",
+                { openSafely(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }),
+            Step(2, "入れてしまったアプリを削除",
+                "リンク先から案内されたアプリ（APK）をインストールした場合は、ただちに削除します。" +
+                "上の②侵害チェックで最近入ったアプリを確認できます。",
+                "アプリ一覧を開く",
+                { openSafely(Intent(Settings.ACTION_APPLICATION_SETTINGS)) }),
+            Step(3, "ユーザー補助・通知アクセスを確認",
+                "不正アプリはこの2つを悪用して、入力の盗み見や認証コードの窃取を行います。" +
+                "身に覚えのないアプリがONなら即OFFにしてください。",
+                "ユーザー補助の設定を開く",
+                { openSafely(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }),
+            Step(4, "提供元不明アプリの許可を取り消す",
+                "ブラウザ等に『不明なアプリのインストール』が許可されていると、" +
+                "再び勝手にアプリを入れられる恐れがあります。",
+                "インストール許可の設定を開く",
+                {
+                    openSafely(Intent(
+                        if (Build.VERSION.SDK_INT >= 26)
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES
+                        else Settings.ACTION_SECURITY_SETTINGS))
+                }),
+            Step(5, "パスワードを変更する",
+                "偽サイトでIDやパスワードを入力してしまった場合は、" +
+                "その場で必ず変更します。**別の安全な端末から**行うのが理想です。" +
+                "同じパスワードを使い回している他のサービスもすべて変更してください。",
+                null, null),
+            Step(6, "二段階認証を有効にする",
+                "パスワードが漏れても、二段階認証があれば侵入を防げます。" +
+                "SMSよりも認証アプリの方が安全です。",
+                null, null),
+            Step(7, "カード情報を入力した場合",
+                "カード会社に連絡して利用停止・再発行を依頼します。" +
+                "カード裏面の番号へ。あわせて利用明細を確認してください。",
+                null, null),
+            Step(8, "ブラウザの履歴とCookieを消す",
+                "偽サイトに残ったセッション情報を無効化します。" +
+                "ブラウザの設定→プライバシー→閲覧データの削除。",
+                null, null),
+            Step(9, "端末を最新にする",
+                "OSとブラウザを最新に更新し、既知の脆弱性を塞ぎます。" +
+                "端末診断タブでパッチ日を確認できます。",
+                "セキュリティ設定を開く",
+                { openSafely(Intent(Settings.ACTION_SECURITY_SETTINGS)) }),
+            Step(10, "会社の端末なら必ず報告",
+                "隠すと被害が拡大します。情報システム部門や上長へ速やかに連絡してください。" +
+                "『踏んだ日時・URL・入力した情報の有無・入れたアプリ』を伝えると対応が早くなります。",
+                null, null)
+        )
+
+        steps.forEach { s ->
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = "手順${s.no}. ${s.title}"
+                    textSize = 14f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(textColor)
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = s.body
+                    textSize = 12f
+                    setTextColor(subColor)
+                    setPadding(0, dp(4), 0, 0)
+                })
+                val btnLabel = s.btn
+                val btnAct = s.act
+                if (btnLabel != null && btnAct != null) {
+                    addView(Button(this@MainActivity).apply {
+                        text = btnLabel
+                        textSize = 13f
+                        isAllCaps = false
+                        setTextColor(textColor)
+                        setBackgroundColor(bgColor)
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, dp(42)
+                        ).apply { topMargin = dp(8) }
+                        setOnClickListener { btnAct() }
+                    })
+                }
+            })
+        }
+
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    private fun showUrlResult(r: UrlChecker.Result) {
+        val sb = StringBuilder()
+        sb.append(when (r.level) {
+            UrlChecker.LEVEL_DANGER -> "判定: 危険（開かないでください）\n\n"
+            UrlChecker.LEVEL_CAUTION -> "判定: 注意\n\n"
+            else -> "判定: 明らかな危険信号なし\n\n"
+        })
+        if (r.host.isNotEmpty()) sb.append("実際の接続先: ${r.host}\n\n")
+        if (r.findings.isEmpty()) {
+            sb.append("既知の詐欺パターンには該当しませんでした。\n\n" +
+                "ただし『危険信号が無い＝安全』ではありません。" +
+                "新しい詐欺サイトや、正規サイトが乗っ取られている場合は検出できません。" +
+                "ログインやカード番号の入力を求められたら、リンクからではなく" +
+                "公式アプリやブックマークから改めてアクセスしてください。")
+        } else {
+            r.findings.forEach {
+                sb.append(if (it.severity == 2) "【危険】" else "【注意】")
+                sb.append("${it.title}\n${it.detail}\n\n")
+            }
+        }
+        AlertDialog.Builder(this)
+            .setTitle("リンク検査結果")
+            .setMessage(sb.toString().trim())
+            .setPositiveButton("閉じる", null)
+            .show()
+    }
+
+    private fun runThreatAction(t: ThreatScanner.Threat) {
+        try {
+            when (t.actionKind) {
+                "uninstall" -> {
+                    val i = Intent(Intent.ACTION_DELETE, Uri.parse("package:${t.pkg}"))
+                    startActivity(i)
+                }
+                "app_detail" -> {
+                    val i = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:${t.pkg}"))
+                    startActivity(i)
+                }
+                "settings" -> {
+                    openSafely(Intent(t.settingsAction))
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "設定画面を開けませんでした。端末の設定から手動で確認してください。",
+                Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openSafely(intent: Intent) {
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "この端末ではこの設定画面を直接開けません。" +
+                "設定アプリから手動で開いてください。", Toast.LENGTH_LONG).show()
+        }
     }
 
     // ===== VPN制御 =====

@@ -1,6 +1,18 @@
 # MamoriDX（守りのDX 2.0）HANDOFF
 
-## 現在バージョン: v3.1（アイコン追加・説明書を機能別5ページ構成に刷新）
+## 現在バージョン: v4.0（Phase 4「緊急対応」タブ追加）
+
+## Phase 4 実装メモ（悪意あるリンク対策）
+- タブ構成が5つに: 棚卸し / 端末診断 / 通信ログ / 緊急対応(index3) / 説明書(index4)。説明書内ページは6つ(概要/棚卸し/診断/通信/緊急/関所)
+- `UrlChecker`(object): 完全オフラインのフィッシングURL判定。@偽装/Punycode/非ASCIIホスト/IP直打ち/短縮URL/危険TLD/多階層サブドメイン/長大ホスト/ブランド詐称/ハイフン乱用/認証誘導パス/過剰エンコード/APK直リンクの13項目。ブランド照合は誤検知回避のため「.-_」で分割したトークン単位（"online"に"line"が一致する事故を防止）。登録可能ドメインはjp二次レベル(co/ne/or等)を考慮して近似算出。ShareGateActivityからも呼ばれ、共有テキスト内のURLを自動検査
+- `ThreatScanner`(object): 侵害チェック6分類。①firstInstallTimeで直近24h/7dの新規アプリ ②Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES ③"enabled_notification_listeners" ④DevicePolicyManager.activeAdmins ⑤REQUEST_INSTALL_PACKAGES付与済みアプリ ⑥既定SMSアプリ(Telephony.Sms.getDefaultSmsPackage)と既定ブラウザの乗っ取り。結果はseverity降順
+- 対処動線: ACTION_DELETE(アンインストール) / ACTION_APPLICATION_DETAILS_SETTINGS / 各種Settings画面へのIntent。全てtry-catchで囲みopenSafely()経由（機種により存在しない画面があるため）
+- 応急処置チェックリスト10手順（通信遮断→アプリ削除→ユーザー補助確認→提供元不明取消→パスワード変更→二段階認証→カード停止→Cookie削除→OS更新→会社報告）
+- 説明書「緊急」ページに「できないこと（正直な限界）」を明記：盗まれた情報は取り戻せない、高度なマルウェアは検出不可、危険信号なし≠安全
+
+## v3.1の内容
+- アイコン: res/mipmap-*/ic_launcher.png（DFDX2.0デザイン、PNG5密度、PILで生成）
+- 説明書タブ: ページ切替式。各ページに「これは何？→使い方手順（手順1から）→見方→FAQ」構成
 - アイコン: res/mipmap-*/ic_launcher.png（DFDX2.0デザイン、PNG5密度、PILで生成）
 - 説明書タブ: 概要/棚卸し/診断/通信/関所 の5ページ切替式。各ページに「これは何？→使い方手順（手順1から）→見方→FAQ」構成
 
