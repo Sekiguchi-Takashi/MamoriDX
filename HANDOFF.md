@@ -1,6 +1,26 @@
 # MamoriDX（守りのDX 2.0）HANDOFF
 
-## 現在バージョン: v4.0（Phase 4「緊急対応」タブ追加）
+## 現在バージョン: v5.0（Phase 5〜8「ツール」タブ追加）
+
+## タブ構成（v5.0）
+棚卸し(0) / 端末診断(1) / 通信ログ(2) / 緊急対応(3) / ツール(4) / 説明書(5)
+説明書内ページ: 概要(0)/棚卸し(1)/診断(2)/通信(3)/緊急(4)/ツール(5)/関所(6)
+ツールタブはメニューのみ。各機能は `ToolsActivity` を EXTRA_PAGE(0-3) で起動
+
+## Phase 5〜8 実装メモ
+- `MediaScanner`(object): SAF(ACTION_OPEN_DOCUMENT_TREE→takePersistableUriPermission)で選択したフォルダをDocumentsContractで幅優先走査(最大1500ファイル)。検出=実行形式/ショートカット/マクロ付Office/二重拡張子/RTL制御文字(U+202A-E,200E,200F,061C)によるファイル名偽装/autorun.inf/長大名/大量空白/マジックバイト不一致(MZ,ELF,%PDF,JPEG,PNG,PK,OLE)/サイズ0。ウイルス定義は持たない
+- `SaasGuard`(object): SharedPreferences(JSON)にSite一覧。probe()はHttpURLConnection(instanceFollowRedirects=false)で最大8ホップ手動追跡し、HttpsURLConnection.serverCertificates[0]のSHA-256をFP化。registerBaseline()で安全な回線の基準を保存、verify()で最終ホスト不一致→危険/FP不一致→危険(正規更新の可能性も併記)/http混在→注意/接続失敗→注意(captive portal示唆)
+- `RouterCheck`(object): WifiManager.connectionInfo(SSID/BSSID)、API31+はWifiInfo.currentSecurityType、未満はscanResults.capabilitiesで暗号方式判定(WPS検出含む)。dhcpInfoからgateway/dns。gatewayへ14ポートを並列Socket接続(500msタイムアウト、join 2500ms)。21/23/139/445/1723/5555は危険判定。DNSが外部の非パブリックリゾルバなら乗っ取り疑い。A/B/C評価
+- `AssetLedger`(object): 機器台帳。checkUrlをGET(最大80万字)→タグ除去→正規表現(既定 DEFAULT_PATTERN)で最大バージョンを抽出＋本文SHA-256。前回値と比較しchangedフラグ。changed時はカード背景を#3A1E1Eに変更。acknowledge()で台帳を最新値に同期
+- `ToolsActivity`: 4ページ切替。SAFはREQ_TREE=2001、位置情報許可はREQ_LOCATION=2002。ネットワーク/走査は全てThread+runOnUiThread
+
+## 権限追加（v5.0）
+INTERNET / ACCESS_NETWORK_STATE（Phase6,8）、ACCESS_WIFI_STATE / ACCESS_FINE_LOCATION（Phase7・実行時要求）
+→ 説明書「概要」の通信説明を更新済み（外部通信は利用者が登録したURLのみ、開発者へは無送信）
+
+## 未実装（意図的に見送り）
+- Phase 9: 定時通知（現在地＋接続SSID、Pebble向け）。バックグラウンド位置情報権限と電池影響が大きいため保留
+- Phase 2.5: DNSブロックの実効化とパケット実転送
 
 ## Phase 4 実装メモ（悪意あるリンク対策）
 - タブ構成が5つに: 棚卸し / 端末診断 / 通信ログ / 緊急対応(index3) / 説明書(index4)。説明書内ページは6つ(概要/棚卸し/診断/通信/緊急/関所)

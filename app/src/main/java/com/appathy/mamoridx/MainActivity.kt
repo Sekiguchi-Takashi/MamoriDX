@@ -106,7 +106,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(8), 0, dp(8), dp(8))
         }
-        val tabNames = listOf("棚卸し", "端末診断", "通信ログ", "緊急対応", "説明書")
+        val tabNames = listOf("棚卸し", "端末診断", "通信ログ", "緊急対応", "ツール", "説明書")
         tabButtons = tabNames.mapIndexed { index, name ->
             Button(this).apply {
                 text = name
@@ -148,7 +148,8 @@ class MainActivity : Activity() {
             1 -> contentArea.addView(buildPostureView())
             2 -> contentArea.addView(buildCommsView())
             3 -> contentArea.addView(buildEmergencyView())
-            4 -> contentArea.addView(buildManualView())
+            4 -> contentArea.addView(buildToolsMenuView())
+            5 -> contentArea.addView(buildManualView())
         }
     }
 
@@ -415,26 +416,26 @@ class MainActivity : Activity() {
         }
 
         // 説明書内のページ切替（機能ごと）
-        val pageNames = listOf("概要", "棚卸し", "診断", "通信", "緊急", "関所")
+        val pageNames = listOf("概要", "棚卸し", "診断", "通信", "緊急", "ツール", "関所")
         val selector = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(12), 0, dp(12), dp(8))
+            setPadding(dp(10), 0, dp(10), dp(8))
         }
         pageNames.forEachIndexed { i, name ->
             selector.addView(Button(this).apply {
                 text = name
-                textSize = 11f
+                textSize = 10f
                 isAllCaps = false
                 setPadding(0, 0, 0, 0)
                 val sel = manualPage == i
                 setTextColor(if (sel) Color.BLACK else subColor)
                 setBackgroundColor(if (sel) accentColor else cardColor)
                 layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply {
-                    setMargins(dp(2), 0, dp(2), 0)
+                    setMargins(dp(1), 0, dp(1), 0)
                 }
                 setOnClickListener {
                     manualPage = i
-                    showTab(4)
+                    showTab(5)
                 }
             })
         }
@@ -475,18 +476,23 @@ class MainActivity : Activity() {
                     "③その代わり漏洩しない仕組み（ガードレール）を置く\n\n" +
                     "禁止ではなく、安全に使うための土台づくりです。")
 
-                section("4つの機能と使う順番",
+                section("5つの機能と使う順番",
                     "はじめての方は次の順で使うのがおすすめです。\n\n" +
                     "手順1. 「端末診断」で土台（端末自体の防御力）を確認\n" +
                     "手順2. 「アプリ棚卸し」で入っているアプリを3分類\n" +
                     "手順3. 「通信ログ」でアプリの通信先（SaaS）を棚卸し\n" +
-                    "手順4. 日常の共有時は「関所」を通して漏洩を防止\n\n" +
-                    "上の「棚卸し/診断/通信/関所」ボタンから各機能の詳しい説明書を開けます。")
+                    "手順4. 「ツール」で自宅ルーターと機器バージョンを点検\n" +
+                    "手順5. 日常の共有時は「関所」を通して漏洩を防止\n" +
+                    "　　　 怪しいリンクを踏んだ時は「緊急対応」へ\n\n" +
+                    "上の切替ボタンから各機能の詳しい説明書を開けます。")
 
-                section("このアプリが集めない情報",
-                    "診断結果・DNSログ・ポリシーは、すべて端末内にのみ保存され、" +
-                    "外部へは一切送信しません。VPNは端末内で完結し、外部のVPNサーバーには接続しません。" +
-                    "共有内容の検査も端末内で完結します。")
+                section("このアプリの通信について",
+                    "診断結果・DNSログ・ポリシー・台帳は、すべて端末内にのみ保存され、" +
+                    "当アプリの開発者や第三者へ送信されることは一切ありません。\n\n" +
+                    "外部と通信するのは次の2機能だけで、接続先は利用者が登録したURLに限られます。\n" +
+                    "・ツール→SaaS接続確認（登録したSaaSへ接続して照合）\n" +
+                    "・ツール→機器台帳の更新確認（登録したメーカーページを取得）\n\n" +
+                    "通信ログ機能のVPNは端末内で完結し、外部のVPNサーバーには接続しません。")
 
                 section("Appathy",
                     "Less Motivation, More Automation.\n" +
@@ -652,8 +658,76 @@ class MainActivity : Activity() {
                     "会社端末なら情報システム部門へ相談してください。")
             }
 
-            // ---------- 関所 ----------
+            // ---------- ツール ----------
             5 -> {
+                section("ツールタブ｜これは何？",
+                    "ツールタブには、日常点検のための4つの機能が入っています。" +
+                    "それぞれ『開く』を押すと専用画面が開きます。")
+
+                section("① 外部メディア検査の手順",
+                    "手順1. USBメモリやSDカードを端末に接続する（USBは変換アダプタが必要）\n" +
+                    "手順2. ツール→外部メディア検査→「フォルダを選んで検査」\n" +
+                    "手順3. 表示された画面で、USBメモリのフォルダを選んで「このフォルダを使用」\n" +
+                    "手順4. 検査結果が一覧表示される\n\n" +
+                    "見方: 赤【危険】は開かないでください。特に" +
+                    "『二重拡張子』『文字の並びを逆転させる特殊文字』『拡張子と中身の不一致』は" +
+                    "意図的な偽装であり、事故ではありません。\n" +
+                    "黄【注意】は形式として危険なだけで、心当たりがあれば問題ない場合もあります。\n\n" +
+                    "限界: ウイルス定義を持たないため、既知ウイルスかどうかの判定はできません。" +
+                    "『安全と出た＝ウイルスがない』ではありません。")
+
+                section("② SaaS接続確認の手順",
+                    "手順1. 自宅など信頼できる回線に接続する\n" +
+                    "手順2. サービス名とログインURLを入力して「この設定を追加」\n" +
+                    "手順3. 「基準登録」を押す（接続先と証明書が記録されます）\n" +
+                    "手順4. 外出先の無料Wi-Fiに接続する\n" +
+                    "手順5. 「今すぐ確認」を押す\n" +
+                    "手順6. 判定が『正常』ならリンクを開いてよい。『危険』なら開かない\n\n" +
+                    "見方:\n" +
+                    "・正常 = 接続先も証明書も基準と一致\n" +
+                    "・危険（接続先が違う）= 別サイトへ誘導されています。偽アクセスポイントや" +
+                    "Wi-Fiの認証画面の割り込みが疑われます\n" +
+                    "・危険（証明書が違う）= 通信を盗み見られている可能性（中間者攻撃）\n" +
+                    "・注意（接続失敗）= Wi-Fiのログイン手続きが未完了の可能性\n\n" +
+                    "注意: サイト側が証明書を正規に更新したときも『違う』と出ます。" +
+                    "安全な回線で確認して問題なければ、もう一度「基準登録」を押して更新してください。")
+
+                section("③ Wi-Fi／ルーター診断の手順",
+                    "手順1. 診断したいWi-Fi（自宅など自分が管理する回線）に接続\n" +
+                    "手順2. 「診断を実行」→位置情報の許可を求められたら許可\n" +
+                    "　（AndroidではWi-Fi名の取得に位置情報権限が必要な仕様のためです）\n" +
+                    "手順3. 総合評価と×項目を確認\n" +
+                    "手順4. ルーターの管理画面（取扱説明書記載のアドレス）で設定を修正\n\n" +
+                    "見方:\n" +
+                    "・暗号方式: WPA3かWPA2なら良好。WEPや暗号化なしは至急変更\n" +
+                    "・開いているポート: Telnet(23)・FTP(21)・SMB(445)・ADB(5555)は特に危険\n" +
+                    "・DNS: 見覚えのない外部サーバーが設定されていたら乗っ取りの疑い\n" +
+                    "・総合評価: A（良好）／B（要改善）／C（要対策）\n\n" +
+                    "注意: 必ず自分が管理する回線でのみ実行してください。" +
+                    "他人のネットワークへのポート確認は法的な問題になり得ます。\n" +
+                    "また、管理画面のパスワード強度やファームウェアの中身までは確認できません。")
+
+                section("④ 機器バージョン台帳の手順",
+                    "手順1. 機器名・種別・現在のバージョンを入力\n" +
+                    "手順2. メーカーの更新情報ページのURLを入力して「台帳に追加」\n" +
+                    "手順3. ときどき「更新確認」を押す\n" +
+                    "手順4. 変化があるとカードが赤くなり、前回との差分が表示される\n" +
+                    "手順5. 実際に機器を更新したら「台帳を最新に更新」で記録を合わせる\n\n" +
+                    "見方: ページ内の『Ver 1.23』のような表記を自動で拾い、" +
+                    "最も新しい番号を『ページ上の最新』として表示します。" +
+                    "表記を拾えない場合も、ページ内容が変わったこと自体は検知します。\n\n" +
+                    "抽出パターン欄（上級者向け）: 正規表現で拾い方を指定できます。" +
+                    "空欄なら既定のパターンが使われます。")
+
+                section("通信について（重要）",
+                    "②SaaS接続確認と④更新確認は、インターネット接続を使います。" +
+                    "接続先は利用者が登録したURLのみで、当アプリの開発者や第三者へは" +
+                    "何も送信されません。①外部メディア検査と③ルーター診断は" +
+                    "外部への通信を行いません。")
+            }
+
+            // ---------- 関所 ----------
+            6 -> {
                 section("関所（漏洩ガード）｜これは何？",
                     "他のアプリからテキストや画像を共有するときに一度経由させる『検問所』です。" +
                     "マイナンバーやカード番号、機密キーワードが含まれていないか転送前に検査します。" +
@@ -1183,6 +1257,84 @@ class MainActivity : Activity() {
             Toast.makeText(this, "この端末ではこの設定画面を直接開けません。" +
                 "設定アプリから手動で開いてください。", Toast.LENGTH_LONG).show()
         }
+    }
+
+    // =========================================================
+    // タブ5: ツール（Phase 5〜8 の入口）
+    // =========================================================
+    private fun buildToolsMenuView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        val tools = listOf(
+            Triple(0, "外部メディア検査",
+                "USBメモリやSDカードの中身を調べ、実行ファイル・二重拡張子・" +
+                "ファイル名偽装・拡張子と中身の不一致を指摘します。"),
+            Triple(1, "SaaS接続確認",
+                "契約中のSaaSのログイン先を登録し、公衆Wi-Fiで別サイトへの" +
+                "リダイレクトや証明書のすり替えが起きていないか照合します。"),
+            Triple(2, "Wi-Fi／ルーター診断",
+                "接続中のWi-Fiの暗号方式、ルーターの開放ポート、DNSの向き先を" +
+                "確認して総合評価します。自宅の回線で実行してください。"),
+            Triple(3, "機器バージョン台帳",
+                "ルーターやPCのバージョンを記録し、メーカーの更新情報ページの" +
+                "変化を検知して知らせます。")
+        )
+
+        tools.forEach { (idx, title, desc) ->
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = title
+                    textSize = 16f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(accentColor)
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = desc
+                    textSize = 13f
+                    setTextColor(textColor)
+                    setPadding(0, dp(6), 0, dp(4))
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = "開く"
+                    textSize = 14f
+                    isAllCaps = false
+                    setTextColor(Color.BLACK)
+                    setBackgroundColor(accentColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+                    ).apply { topMargin = dp(6) }
+                    setOnClickListener {
+                        try {
+                            startActivity(Intent(this@MainActivity, ToolsActivity::class.java)
+                                .putExtra(ToolsActivity.EXTRA_PAGE, idx))
+                        } catch (e: Exception) {
+                            Toast.makeText(this@MainActivity,
+                                "画面を開けませんでした", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                })
+                setOnClickListener {
+                    try {
+                        startActivity(Intent(this@MainActivity, ToolsActivity::class.java)
+                            .putExtra(ToolsActivity.EXTRA_PAGE, idx))
+                    } catch (e: Exception) { }
+                }
+            })
+        }
+
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "これらの機能はインターネット接続を使います（SaaS接続確認・台帳の更新確認）。" +
+                    "接続先は利用者が登録したURLのみで、当アプリの開発者へは何も送信されません。"
+                textSize = 12f
+                setTextColor(subColor)
+            })
+        })
+
+        return ScrollView(this).apply { addView(list) }
     }
 
     // ===== VPN制御 =====
