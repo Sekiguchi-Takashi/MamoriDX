@@ -20,6 +20,7 @@ import android.widget.Toast
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -101,12 +102,9 @@ class MainActivity : Activity() {
             setPadding(dp(16), 0, dp(16), dp(12))
         })
 
-        // ===== タブ =====
-        val tabRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(8), 0, dp(8), dp(8))
-        }
-        val tabNames = listOf("棚卸し", "端末診断", "通信ログ", "緊急対応", "ツール", "説明書")
+        // ===== タブ（2段） =====
+        val tabNames = listOf("棚卸し", "端末診断", "通信ログ", "緊急対応",
+            "パソコン", "ツール", "説明書")
         tabButtons = tabNames.mapIndexed { index, name ->
             Button(this).apply {
                 text = name
@@ -115,14 +113,29 @@ class MainActivity : Activity() {
                 setPadding(0, 0, 0, 0)
                 setTextColor(textColor)
                 setBackgroundColor(cardColor)
-                layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply {
                     setMargins(dp(3), 0, dp(3), 0)
                 }
                 setOnClickListener { showTab(index) }
             }
         }
-        tabButtons.forEach { tabRow.addView(it) }
-        root.addView(tabRow)
+        val tabRow1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(8), 0, dp(8), dp(4))
+        }
+        val tabRow2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(8), 0, dp(8), dp(8))
+        }
+        tabButtons.forEachIndexed { i, b ->
+            if (i < 4) tabRow1.addView(b) else tabRow2.addView(b)
+        }
+        // 2段目は3つなので、余白用のダミーで幅を揃える
+        tabRow2.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
+        })
+        root.addView(tabRow1)
+        root.addView(tabRow2)
 
         // ===== コンテンツ領域 =====
         contentArea = FrameLayout(this).apply {
@@ -148,8 +161,9 @@ class MainActivity : Activity() {
             1 -> contentArea.addView(buildPostureView())
             2 -> contentArea.addView(buildCommsView())
             3 -> contentArea.addView(buildEmergencyView())
-            4 -> contentArea.addView(buildToolsMenuView())
-            5 -> contentArea.addView(buildManualView())
+            4 -> contentArea.addView(buildPcView())
+            5 -> contentArea.addView(buildToolsMenuView())
+            6 -> contentArea.addView(buildManualView())
         }
     }
 
@@ -416,13 +430,10 @@ class MainActivity : Activity() {
         }
 
         // 説明書内のページ切替（機能ごと）
-        val pageNames = listOf("概要", "棚卸し", "診断", "通信", "緊急", "ツール", "関所")
-        val selector = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(10), 0, dp(10), dp(8))
-        }
-        pageNames.forEachIndexed { i, name ->
-            selector.addView(Button(this).apply {
+        val pageNames = listOf("概要", "棚卸し", "診断", "通信",
+            "緊急", "パソコン", "ツール", "関所")
+        val pageBtns = pageNames.mapIndexed { i, name ->
+            Button(this).apply {
                 text = name
                 textSize = 10f
                 isAllCaps = false
@@ -430,16 +441,28 @@ class MainActivity : Activity() {
                 val sel = manualPage == i
                 setTextColor(if (sel) Color.BLACK else subColor)
                 setBackgroundColor(if (sel) accentColor else cardColor)
-                layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply {
-                    setMargins(dp(1), 0, dp(1), 0)
+                layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
                 }
                 setOnClickListener {
                     manualPage = i
-                    showTab(5)
+                    showTab(6)
                 }
-            })
+            }
         }
-        outer.addView(selector)
+        val selRow1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(10), 0, dp(10), dp(4))
+        }
+        val selRow2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(10), 0, dp(10), dp(8))
+        }
+        pageBtns.forEachIndexed { i, b ->
+            if (i < 4) selRow1.addView(b) else selRow2.addView(b)
+        }
+        outer.addView(selRow1)
+        outer.addView(selRow2)
 
         val list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -476,13 +499,14 @@ class MainActivity : Activity() {
                     "③その代わり漏洩しない仕組み（ガードレール）を置く\n\n" +
                     "禁止ではなく、安全に使うための土台づくりです。")
 
-                section("5つの機能と使う順番",
+                section("機能と使う順番",
                     "はじめての方は次の順で使うのがおすすめです。\n\n" +
                     "手順1. 「端末診断」で土台（端末自体の防御力）を確認\n" +
                     "手順2. 「アプリ棚卸し」で入っているアプリを3分類\n" +
                     "手順3. 「通信ログ」でアプリの通信先（SaaS）を棚卸し\n" +
-                    "手順4. 「ツール」で自宅ルーターと機器バージョンを点検\n" +
-                    "手順5. 日常の共有時は「関所」を通して漏洩を防止\n" +
+                    "手順4. 「パソコン」で業務PCの対策状況を点検\n" +
+                    "手順5. 「ツール」で自宅ルーターと機器バージョンを点検\n" +
+                    "手順6. 日常の共有時は「関所」を通して漏洩を防止\n" +
                     "　　　 怪しいリンクを踏んだ時は「緊急対応」へ\n\n" +
                     "上の切替ボタンから各機能の詳しい説明書を開けます。")
 
@@ -658,8 +682,72 @@ class MainActivity : Activity() {
                     "会社端末なら情報システム部門へ相談してください。")
             }
 
-            // ---------- ツール ----------
+            // ---------- パソコン ----------
             5 -> {
+                section("パソコンタブ｜これは何？",
+                    "パソコンは使い方によって必要な対策が変わります。" +
+                    "利用目的を選ぶと、その用途で本当に必要な項目だけのチェックリストが出て、" +
+                    "未対応のものを優先順位つきで提言します。\n\n" +
+                    "スマホから点検できるようにしてあるので、" +
+                    "パソコンの前に座って画面を見ながら確認する使い方を想定しています。")
+
+                section("使い方手順",
+                    "手順1. OS（Windows / Mac）を選ぶ。提言の操作手順がOSに合わせて変わります\n" +
+                    "手順2. 利用目的を選ぶ（複数選択可）\n" +
+                    "　・屋外利用（持ち出す）\n" +
+                    "　・機密情報を保存する\n" +
+                    "　・複数人でシェアする\n" +
+                    "手順3. 表示されたチェックリストのうち、できている項目にチェック\n" +
+                    "手順4. 一番下の「評価する」を押す\n" +
+                    "手順5. 画面上部に評価と提言が表示される\n" +
+                    "手順6. 提言の「最優先で対応」から順に対処する\n" +
+                    "手順7. 対処できたらチェックを入れ、もう一度評価する\n\n" +
+                    "チェック内容とOS・目的の選択は自動保存されるので、" +
+                    "途中でアプリを閉じても続きから再開できます。")
+
+                section("チェック項目の構成",
+                    "・共通（土台）… どの用途でも必要な10項目。更新、ウイルス対策、" +
+                    "アカウント分離、バックアップ、マクロ無効化など\n" +
+                    "・屋外利用 … ディスク暗号化、復帰時パスワード、公衆Wi-Fi対策、" +
+                    "遠隔ロック、のぞき見・置き忘れ対策など\n" +
+                    "・機密情報を保存 … 保管場所の把握、ファイル暗号化、権限制限、" +
+                    "同期フォルダの分離、廃棄手順、私物端末の禁止など\n" +
+                    "・複数人でシェア … 個別アカウント、管理者の限定、データ分離、" +
+                    "ログ確認、退職時手順など\n\n" +
+                    "目的を複数選ぶと、その分だけ項目が増えます。")
+
+                section("評価の見方",
+                    "各項目には重要度がついています。\n" +
+                    "・[必須]（赤）= これが欠けると他の対策が意味を失う項目\n" +
+                    "・[重要]（黄）= その用途で通常求められる水準\n" +
+                    "・[推奨]（灰）= 余裕があれば取り組む項目\n\n" +
+                    "達成度は単純な個数ではなく、重要度で重みづけして計算します。\n\n" +
+                    "評価:\n" +
+                    "・A（良好）= 必須と重要をすべて満たしている（推奨の残りは可）\n" +
+                    "・B（要改善）= 必須は満たすが重要項目に穴がある\n" +
+                    "・C（要対策）= 必須項目に穴がある\n" +
+                    "・D（危険）= 必須項目が3件以上未対応\n\n" +
+                    "必須項目が1つでも欠けているとA評価にはなりません。" +
+                    "個数の多さより、必須を埋めることを優先してください。")
+
+                section("提言の使い方",
+                    "提言は「最優先で対応（必須）」「次に対応（重要）」「余裕があれば（推奨）」の" +
+                    "3段階で表示されます。各項目には" +
+                    "『なぜ必要か』と『具体的な対処手順』が併記されます。\n\n" +
+                    "対処手順は選んだOSに合わせた設定画面の場所まで書いてあるので、" +
+                    "そのままパソコンを操作できます。")
+
+                section("この機能の限界",
+                    "この評価は自己申告に基づく目安です。" +
+                    "スマホからパソコンの実際の設定値を読み取ることはできないため、" +
+                    "「チェックを入れたつもりだが実際は無効だった」場合は検出できません。\n\n" +
+                    "重要な判断に使う場合は、提言に書かれた設定画面を実際に開いて" +
+                    "現在の値を確認してからチェックを入れてください。" +
+                    "また、社内規程や業界基準がある場合は、そちらとの整合も別途確認が必要です。")
+            }
+
+            // ---------- ツール ----------
+            6 -> {
                 section("ツールタブ｜これは何？",
                     "ツールタブには、日常点検のための4つの機能が入っています。" +
                     "それぞれ『開く』を押すと専用画面が開きます。")
@@ -727,7 +815,7 @@ class MainActivity : Activity() {
             }
 
             // ---------- 関所 ----------
-            6 -> {
+            7 -> {
                 section("関所（漏洩ガード）｜これは何？",
                     "他のアプリからテキストや画像を共有するときに一度経由させる『検問所』です。" +
                     "マイナンバーやカード番号、機密キーワードが含まれていないか転送前に検査します。" +
@@ -1332,6 +1420,319 @@ class MainActivity : Activity() {
                 textSize = 12f
                 setTextColor(subColor)
             })
+        })
+
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    // =========================================================
+    // タブ5: パソコン（利用目的別セキュリティ点検）
+    // =========================================================
+    private var pcOs = -1
+    private var pcPurposes: MutableSet<Int>? = null
+    private var pcChecked: MutableSet<String>? = null
+    private var pcReport: PcAdvisor.Report? = null
+
+    private fun buildPcView(): View {
+        if (pcOs < 0) pcOs = PcAdvisor.loadOs(applicationContext)
+        val purposes = pcPurposes ?: PcAdvisor.loadPurposes(applicationContext)
+            .also { pcPurposes = it }
+        val checked = pcChecked ?: PcAdvisor.loadChecked(applicationContext)
+            .also { pcChecked = it }
+
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        // ---- 説明 ----
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "パソコンのセキュリティ点検"
+                textSize = 16f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(accentColor)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "そのパソコンの使い方に応じて、必要な対策が変わります。" +
+                    "OSと利用目的を選び、できている項目にチェックを入れて" +
+                    "「評価する」を押すと、優先順位つきの提言が出ます。\n\n" +
+                    "手順1. OSを選ぶ\n手順2. 利用目的を選ぶ（複数選択できます）\n" +
+                    "手順3. できている項目にチェック\n手順4. 「評価する」を押す"
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+        })
+
+        // ---- OS選択 ----
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "OS"
+                textSize = 14f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(textColor)
+            })
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(6) }
+                listOf("Windows" to PcAdvisor.OS_WIN, "Mac" to PcAdvisor.OS_MAC)
+                    .forEach { (label, v) ->
+                        addView(Button(this@MainActivity).apply {
+                            text = label
+                            textSize = 13f
+                            isAllCaps = false
+                            val sel = pcOs == v
+                            setTextColor(if (sel) Color.BLACK else textColor)
+                            setBackgroundColor(if (sel) accentColor else bgColor)
+                            layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply {
+                                setMargins(dp(3), 0, dp(3), 0)
+                            }
+                            setOnClickListener {
+                                pcOs = v
+                                PcAdvisor.saveOs(applicationContext, v)
+                                showTab(4)
+                            }
+                        })
+                    }
+            })
+        })
+
+        // ---- 利用目的 ----
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "利用目的（複数選択可）"
+                textSize = 14f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(textColor)
+            })
+            listOf(
+                PcAdvisor.P_OUTDOOR to "屋外利用（持ち出す）",
+                PcAdvisor.P_CONFIDENTIAL to "機密情報を保存する",
+                PcAdvisor.P_SHARED to "複数人でシェアする"
+            ).forEach { (v, label) ->
+                addView(Button(this@MainActivity).apply {
+                    val sel = purposes.contains(v)
+                    text = (if (sel) "✓ " else "　") + label
+                    textSize = 13f
+                    isAllCaps = false
+                    gravity = Gravity.CENTER_VERTICAL or Gravity.LEFT
+                    setPadding(dp(12), 0, dp(8), 0)
+                    setTextColor(if (sel) Color.BLACK else textColor)
+                    setBackgroundColor(if (sel) greenColor else bgColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+                    ).apply { topMargin = dp(6) }
+                    setOnClickListener {
+                        if (sel) purposes.remove(v) else purposes.add(v)
+                        PcAdvisor.savePurposes(applicationContext, purposes)
+                        pcReport = null
+                        showTab(4)
+                    }
+                })
+            }
+        })
+
+        if (purposes.isEmpty()) {
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = "利用目的を1つ以上選んでください。" +
+                        "選んだ目的に応じたチェック項目が表示されます。"
+                    textSize = 13f
+                    setTextColor(yellowColor)
+                })
+            })
+            return ScrollView(this).apply { addView(list) }
+        }
+
+        // ---- 評価結果（押した直後に見えるよう上部に配置） ----
+        val rep = pcReport
+        if (rep != null) {
+            val gc = when {
+                rep.grade.startsWith("A") -> greenColor
+                rep.grade.startsWith("B") -> yellowColor
+                else -> redColor
+            }
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = "評価: ${rep.grade}"
+                    textSize = 20f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(gc)
+                    gravity = Gravity.CENTER
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = "達成度 ${rep.percent}%（重要度で重みづけ）\n" +
+                        "対応済み ${rep.doneCount} / ${rep.totalCount} 項目\n" +
+                        "対象: " + purposes.sorted()
+                            .joinToString("・") { PcAdvisor.purposeName(it) }
+                    textSize = 12f
+                    setTextColor(subColor)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(6), 0, dp(8))
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = rep.summary
+                    textSize = 13f
+                    setTextColor(textColor)
+                })
+            })
+
+            fun adviceBlock(title: String, color: Int, items: List<PcAdvisor.Item>) {
+                if (items.isEmpty()) return
+                list.addView(card().apply {
+                    addView(TextView(this@MainActivity).apply {
+                        text = "$title（${items.size}件）"
+                        textSize = 15f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(color)
+                    })
+                })
+                items.forEachIndexed { i, item ->
+                    list.addView(card().apply {
+                        addView(TextView(this@MainActivity).apply {
+                            text = "${i + 1}. ${item.title}"
+                            textSize = 14f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(color)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = "なぜ必要か: ${item.why}"
+                            textSize = 12f
+                            setTextColor(subColor)
+                            setPadding(0, dp(4), 0, dp(4))
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = "対処: ${item.advice(pcOs)}"
+                            textSize = 13f
+                            setTextColor(textColor)
+                        })
+                    })
+                }
+            }
+
+            adviceBlock("最優先で対応（必須）", redColor, rep.musts)
+            adviceBlock("次に対応（重要）", yellowColor, rep.importants)
+            adviceBlock("余裕があれば（推奨）", accentColor, rep.recommends)
+
+            if (rep.musts.isEmpty() && rep.importants.isEmpty() &&
+                rep.recommends.isEmpty()) {
+                list.addView(card().apply {
+                    addView(TextView(this@MainActivity).apply {
+                        text = "未対応の項目はありません。年1回の見直しと、" +
+                            "利用目的が変わったときの再評価をおすすめします。"
+                        textSize = 13f
+                        setTextColor(greenColor)
+                    })
+                })
+            }
+
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = "この評価は自己申告に基づく目安です。" +
+                        "実際の設定値の確認や、社内規程との整合はあらためて点検してください。"
+                    textSize = 12f
+                    setTextColor(subColor)
+                })
+            })
+        }
+
+        // ---- チェックリスト ----
+        val items = PcAdvisor.itemsFor(purposes)
+        val groups = listOf(PcAdvisor.P_COMMON) + purposes.sorted()
+        groups.forEach { g ->
+            val groupItems = items.filter { it.purpose == g }
+            if (groupItems.isEmpty()) return@forEach
+            list.addView(card().apply {
+                setBackgroundColor(bgColor)
+                addView(TextView(this@MainActivity).apply {
+                    text = "■ " + PcAdvisor.purposeName(g) +
+                        "（${groupItems.count { checked.contains(it.id) }}/${groupItems.size}）"
+                    textSize = 15f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(accentColor)
+                })
+            })
+            groupItems.forEach { item ->
+                val badge = when (item.weight) {
+                    PcAdvisor.W_MUST -> "必須"
+                    PcAdvisor.W_IMPORTANT -> "重要"
+                    else -> "推奨"
+                }
+                val badgeColor = when (item.weight) {
+                    PcAdvisor.W_MUST -> redColor
+                    PcAdvisor.W_IMPORTANT -> yellowColor
+                    else -> subColor
+                }
+                list.addView(card().apply {
+                    addView(TextView(this@MainActivity).apply {
+                        text = "[$badge]"
+                        textSize = 11f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(badgeColor)
+                    })
+                    addView(CheckBox(this@MainActivity).apply {
+                        text = item.title
+                        textSize = 14f
+                        setTextColor(textColor)
+                        isChecked = checked.contains(item.id)
+                        setOnCheckedChangeListener { _, isOn ->
+                            if (isOn) checked.add(item.id) else checked.remove(item.id)
+                            PcAdvisor.saveChecked(applicationContext, checked)
+                        }
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = item.why
+                        textSize = 12f
+                        setTextColor(subColor)
+                        setPadding(dp(4), 0, 0, 0)
+                    })
+                })
+            }
+        }
+
+        // ---- 評価ボタン ----
+        list.addView(Button(this).apply {
+            text = "評価する"
+            textSize = 16f
+            isAllCaps = false
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.BLACK)
+            setBackgroundColor(accentColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(54)
+            ).apply { topMargin = dp(16) }
+            setOnClickListener {
+                pcReport = PcAdvisor.evaluate(purposes, checked)
+                showTab(4)
+            }
+        })
+
+        list.addView(Button(this).apply {
+            text = "チェックをすべて外す"
+            textSize = 13f
+            isAllCaps = false
+            setTextColor(textColor)
+            setBackgroundColor(cardColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+            ).apply { topMargin = dp(8) }
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("確認")
+                    .setMessage("チェックをすべて外しますか？")
+                    .setPositiveButton("外す") { _, _ ->
+                        checked.clear()
+                        PcAdvisor.saveChecked(applicationContext, checked)
+                        pcReport = null
+                        showTab(4)
+                    }
+                    .setNegativeButton("やめる", null)
+                    .show()
+            }
         })
 
         return ScrollView(this).apply { addView(list) }

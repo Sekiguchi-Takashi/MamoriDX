@@ -1,6 +1,22 @@
 # MamoriDX（守りのDX 2.0）HANDOFF
 
-## 現在バージョン: v5.0（Phase 5〜8「ツール」タブ追加）
+## 現在バージョン: v6.0（「パソコン」タブ追加）
+
+## タブ構成（v6.0・2段表示）
+1段目: 棚卸し(0) / 端末診断(1) / 通信ログ(2) / 緊急対応(3)
+2段目: パソコン(4) / ツール(5) / 説明書(6) ＋幅揃え用ダミーView
+説明書内ページ（2段・8項目）: 概要(0)/棚卸し(1)/診断(2)/通信(3)/緊急(4)/パソコン(5)/ツール(6)/関所(7)
+
+## パソコンタブ実装メモ
+- `PcAdvisor`(object): チェック項目を全39件保持。purpose= P_COMMON(-1)/P_OUTDOOR(0)/P_CONFIDENTIAL(1)/P_SHARED(2)。共通10＋屋外9＋機密10＋シェア10
+- 各Itemは id/purpose/title/why/weight/adviceWin/adviceMac を持ち、OS選択に応じて対処手順を切替（BitLocker⇔FileVault等）
+- 重みづけ: W_MUST=3 / W_IMPORTANT=2 / W_RECOMMEND=1。percent = 達成重み/満点
+- 評価: musts>=3→D、musts>=1→C、importants空→A、percent>=80→B、他→C
+  ※「必須が1つでも未対応ならA不可」「必須+重要を全部満たせばA（推奨の残りは許容）」という整合を取っている
+- 提言は musts/importants/recommends の3ブロックで、各項目に「なぜ必要か」＋「対処（OS別）」を併記
+- 状態は SharedPreferences("mamoridx_pc") に os / purposes(csv) / checked(csv) を保存。CheckBoxのonCheckedChangeで即保存（画面再構築せずスクロール位置を保つ）
+- 評価結果はチェックリストより上に描画（押下後の再構築で結果がすぐ見えるようにするため）
+- 限界を説明書に明記: 自己申告ベースであり、スマホからPCの実設定値は読めない
 
 ## タブ構成（v5.0）
 棚卸し(0) / 端末診断(1) / 通信ログ(2) / 緊急対応(3) / ツール(4) / 説明書(5)
