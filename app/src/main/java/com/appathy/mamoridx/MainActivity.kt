@@ -103,8 +103,8 @@ class MainActivity : Activity() {
         })
 
         // ===== タブ（2段） =====
-        val tabNames = listOf("棚卸し", "端末診断", "通信ログ", "緊急対応",
-            "パソコン", "ツール", "説明書")
+        val tabNames = listOf("状態", "棚卸し", "端末診断", "通信ログ",
+            "緊急対応", "パソコン", "ツール", "説明書")
         tabButtons = tabNames.mapIndexed { index, name ->
             Button(this).apply {
                 text = name
@@ -130,10 +130,6 @@ class MainActivity : Activity() {
         tabButtons.forEachIndexed { i, b ->
             if (i < 4) tabRow1.addView(b) else tabRow2.addView(b)
         }
-        // 2段目は3つなので、余白用のダミーで幅を揃える
-        tabRow2.addView(View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
-        })
         root.addView(tabRow1)
         root.addView(tabRow2)
 
@@ -157,13 +153,14 @@ class MainActivity : Activity() {
         }
         contentArea.removeAllViews()
         when (index) {
-            0 -> contentArea.addView(buildInventoryView())
-            1 -> contentArea.addView(buildPostureView())
-            2 -> contentArea.addView(buildCommsView())
-            3 -> contentArea.addView(buildEmergencyView())
-            4 -> contentArea.addView(buildPcView())
-            5 -> contentArea.addView(buildToolsMenuView())
-            6 -> contentArea.addView(buildManualView())
+            0 -> contentArea.addView(buildStatusView())
+            1 -> contentArea.addView(buildInventoryView())
+            2 -> contentArea.addView(buildPostureView())
+            3 -> contentArea.addView(buildCommsView())
+            4 -> contentArea.addView(buildEmergencyView())
+            5 -> contentArea.addView(buildPcView())
+            6 -> contentArea.addView(buildToolsMenuView())
+            7 -> contentArea.addView(buildManualView())
         }
     }
 
@@ -430,8 +427,8 @@ class MainActivity : Activity() {
         }
 
         // 説明書内のページ切替（機能ごと）
-        val pageNames = listOf("概要", "棚卸し", "診断", "通信",
-            "緊急", "パソコン", "ツール", "関所")
+        val pageNames = listOf("概要", "状態", "棚卸し", "診断",
+            "通信", "緊急", "パソコン", "ツール", "関所")
         val pageBtns = pageNames.mapIndexed { i, name ->
             Button(this).apply {
                 text = name
@@ -446,7 +443,7 @@ class MainActivity : Activity() {
                 }
                 setOnClickListener {
                     manualPage = i
-                    showTab(6)
+                    showTab(7)
                 }
             }
         }
@@ -459,8 +456,12 @@ class MainActivity : Activity() {
             setPadding(dp(10), 0, dp(10), dp(8))
         }
         pageBtns.forEachIndexed { i, b ->
-            if (i < 4) selRow1.addView(b) else selRow2.addView(b)
+            if (i < 5) selRow1.addView(b) else selRow2.addView(b)
         }
+        // 2段目は4つなので、幅を1段目と揃えるためのダミー
+        selRow2.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f)
+        })
         outer.addView(selRow1)
         outer.addView(selRow2)
 
@@ -501,12 +502,13 @@ class MainActivity : Activity() {
 
                 section("機能と使う順番",
                     "はじめての方は次の順で使うのがおすすめです。\n\n" +
-                    "手順1. 「端末診断」で土台（端末自体の防御力）を確認\n" +
-                    "手順2. 「アプリ棚卸し」で入っているアプリを3分類\n" +
-                    "手順3. 「通信ログ」でアプリの通信先（SaaS）を棚卸し\n" +
-                    "手順4. 「パソコン」で業務PCの対策状況を点検\n" +
-                    "手順5. 「ツール」で自宅ルーターと機器バージョンを点検\n" +
-                    "手順6. 日常の共有時は「関所」を通して漏洩を防止\n" +
+                    "手順1. 「状態」で端末の現況をざっと確認\n" +
+                    "手順2. 「端末診断」で土台（端末自体の防御力）を確認\n" +
+                    "手順3. 「アプリ棚卸し」で入っているアプリを3分類\n" +
+                    "手順4. 「通信ログ」でアプリの通信先（SaaS）を棚卸し\n" +
+                    "手順5. 「パソコン」で業務PCの対策状況を点検\n" +
+                    "手順6. 「ツール」で自宅ルーターと機器バージョンを点検\n" +
+                    "手順7. 日常の共有時は「関所」を通して漏洩を防止\n" +
                     "　　　 怪しいリンクを踏んだ時は「緊急対応」へ\n\n" +
                     "上の切替ボタンから各機能の詳しい説明書を開けます。")
 
@@ -523,8 +525,58 @@ class MainActivity : Activity() {
                     "本アプリはスマホのみ（Termux + GitHub Actions）で開発されています。")
             }
 
-            // ---------- アプリ棚卸し ----------
+            // ---------- 状態 ----------
             1 -> {
+                section("状態タブ｜これは何？",
+                    "端末の現在の状況をひと目で確認する画面です。" +
+                    "普段の値を知っておくと、「いつもと違う」ことに気付けるようになります。\n\n" +
+                    "画面を開くたびに自動で取得します。" +
+                    "手動で取り直したいときは上の「最新の状態に更新」を押してください。")
+
+                section("表示される6項目の見方",
+                    "①ストレージ … 全体の使用量と使用率をバーで表示。" +
+                    "90%を超えると赤くなります。空きが少ないとOSの更新を適用できなくなるため、" +
+                    "セキュリティ上も重要な項目です。\n\n" +
+                    "②Androidバージョン … OS名・機種・ビルド・セキュリティパッチ日を表示。" +
+                    "パッチが半年以上前、またはOSが古い場合は黄色で警告します。\n\n" +
+                    "③接続中のWi-Fi … 接続先の名前、暗号方式、リンク速度、IPアドレス。" +
+                    "外出先で意図しないWi-Fiに繋がっていないかの確認に使えます。\n\n" +
+                    "④Bluetooth … 接続中の機器とペアリング済み機器の一覧。" +
+                    "身に覚えのない機器が登録されていないか確認できます。\n\n" +
+                    "⑤接続中の外部デバイス … USB機器やUSBメモリ・SDカード。" +
+                    "種別（キーボード、ストレージ等）とメーカー、容量を表示します。\n\n" +
+                    "⑥起動中のアプリ … 現在動作しているアプリ。" +
+                    "緑色は画面に表示中、それ以外は背後で動作中です。")
+
+                section("この画面での気付き方",
+                    "・Wi-Fi名が意図しない名前になっていないか（偽アクセスポイントの疑い）\n" +
+                    "・Bluetoothに見覚えのない機器がペアリングされていないか\n" +
+                    "・身に覚えのないUSB機器が接続されていないか\n" +
+                    "・セキュリティパッチが古すぎないか\n" +
+                    "・ストレージが逼迫して更新が止まっていないか\n\n" +
+                    "怪しい点が見つかった場合は「緊急対応」タブの侵害チェックもあわせて実行してください。")
+
+                section("表示できる範囲の限界（正直な説明）",
+                    "【起動中のアプリ】Android 5.0以降のOS仕様により、" +
+                    "他のアプリの動作状況はほとんど取得できません。" +
+                    "ここに表示されるのは一部で、多くの端末では本アプリ自身しか出ません。" +
+                    "全体を確認するには、端末の「最近使ったアプリ」画面や" +
+                    "設定→アプリ→実行中のサービスをご覧ください。" +
+                    "画面下のボタンから設定画面を開けます。\n\n" +
+                    "【Wi-Fi名】Androidの仕様上、位置情報の許可がないと取得できません。" +
+                    "許可ボタンから設定できます。\n\n" +
+                    "【Bluetooth】Android 12以降は「近くのデバイス」の許可が必要です。" +
+                    "また、イヤホン等はOSの仕様で接続中と判定されない場合があるため、" +
+                    "ペアリング済み一覧もあわせてご確認ください。\n\n" +
+                    "【アップデートの確認】アプリから更新の有無を直接調べることはOSの仕様上できません。" +
+                    "本アプリはバージョンとパッチ日から古さを判定し、" +
+                    "実際の確認は端末の「システム更新」画面へ案内する方式にしています。\n\n" +
+                    "【ストレージ】表示は端末全体の使用量です。" +
+                    "アプリごとの内訳は端末の設定→ストレージで確認できます。")
+            }
+
+            // ---------- アプリ棚卸し ----------
+            2 -> {
                 section("アプリ棚卸しタブ｜これは何？",
                     "端末にインストールされているアプリを自動でスキャンし、" +
                     "リスクの高さで「許可済み／要監視／要対策」の3つに分類する機能です。" +
@@ -558,7 +610,7 @@ class MainActivity : Activity() {
             }
 
             // ---------- 端末診断 ----------
-            2 -> {
+            3 -> {
                 section("端末診断タブ｜これは何？",
                     "アプリ単位ではなく、端末そのものの防御力を6項目でチェックし、" +
                     "A/B/Cの総合判定を出す機能です。土台が弱いと、どんな対策も効果が半減します。")
@@ -587,7 +639,7 @@ class MainActivity : Activity() {
             }
 
             // ---------- 通信ログ ----------
-            3 -> {
+            4 -> {
                 section("通信ログタブ｜これは何？",
                     "端末内VPNの仕組みで、アプリが「どのドメイン（SaaS等）へ通信しようとしたか」を" +
                     "DNSレベルで記録する機能です。会社が把握していないSaaS利用（シャドーIT）の発見に使います。")
@@ -622,7 +674,7 @@ class MainActivity : Activity() {
             }
 
             // ---------- 緊急対応 ----------
-            4 -> {
+            5 -> {
                 section("緊急対応タブ｜これは何？",
                     "怪しいリンクを踏んでしまった／踏みそうな時のための機能です。" +
                     "「開く前の検査」「踏んだ後の侵害チェック」「応急処置の手順」の3つが入っています。")
@@ -683,7 +735,7 @@ class MainActivity : Activity() {
             }
 
             // ---------- パソコン ----------
-            5 -> {
+            6 -> {
                 section("パソコンタブ｜これは何？",
                     "パソコンは使い方によって必要な対策が変わります。" +
                     "利用目的を選ぶと、その用途で本当に必要な項目だけのチェックリストが出て、" +
@@ -747,7 +799,7 @@ class MainActivity : Activity() {
             }
 
             // ---------- ツール ----------
-            6 -> {
+            7 -> {
                 section("ツールタブ｜これは何？",
                     "ツールタブには、日常点検のための4つの機能が入っています。" +
                     "それぞれ『開く』を押すと専用画面が開きます。")
@@ -815,7 +867,7 @@ class MainActivity : Activity() {
             }
 
             // ---------- 関所 ----------
-            7 -> {
+            8 -> {
                 section("関所（漏洩ガード）｜これは何？",
                     "他のアプリからテキストや画像を共有するときに一度経由させる『検問所』です。" +
                     "マイナンバーやカード番号、機密キーワードが含まれていないか転送前に検査します。" +
@@ -913,7 +965,7 @@ class MainActivity : Activity() {
                 ).apply { topMargin = dp(8) }
                 setOnClickListener {
                     DnsLogStore.clear(applicationContext)
-                    showTab(2)
+                    showTab(3)
                 }
             })
         })
@@ -989,7 +1041,7 @@ class MainActivity : Activity() {
                             .setPositiveButton("OK", null)
                             .show()
                     }
-                    showTab(2)
+                    showTab(3)
                 }
             })
         }
@@ -1086,7 +1138,7 @@ class MainActivity : Activity() {
                         setOnClickListener {
                             emergencyHours = h
                             emergencyScanned = true
-                            showTab(3)
+                            showTab(4)
                         }
                     })
                 }
@@ -1102,7 +1154,7 @@ class MainActivity : Activity() {
                 ).apply { topMargin = dp(8) }
                 setOnClickListener {
                     emergencyScanned = true
-                    showTab(3)
+                    showTab(4)
                 }
             })
         })
@@ -1494,7 +1546,7 @@ class MainActivity : Activity() {
                             setOnClickListener {
                                 pcOs = v
                                 PcAdvisor.saveOs(applicationContext, v)
-                                showTab(4)
+                                showTab(5)
                             }
                         })
                     }
@@ -1530,7 +1582,7 @@ class MainActivity : Activity() {
                         if (sel) purposes.remove(v) else purposes.add(v)
                         PcAdvisor.savePurposes(applicationContext, purposes)
                         pcReport = null
-                        showTab(4)
+                        showTab(5)
                     }
                 })
             }
@@ -1707,7 +1759,7 @@ class MainActivity : Activity() {
             ).apply { topMargin = dp(16) }
             setOnClickListener {
                 pcReport = PcAdvisor.evaluate(purposes, checked)
-                showTab(4)
+                showTab(5)
             }
         })
 
@@ -1728,7 +1780,7 @@ class MainActivity : Activity() {
                         checked.clear()
                         PcAdvisor.saveChecked(applicationContext, checked)
                         pcReport = null
-                        showTab(4)
+                        showTab(5)
                     }
                     .setNegativeButton("やめる", null)
                     .show()
@@ -1736,6 +1788,365 @@ class MainActivity : Activity() {
         })
 
         return ScrollView(this).apply { addView(list) }
+    }
+
+    // =========================================================
+    // タブ0: 状態（端末の現況）
+    // =========================================================
+    private val REQ_STATUS_PERM = 3001
+
+    private fun buildStatusView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        val hasLocation = checkSelfPermission(
+            android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        val hasBt = if (Build.VERSION.SDK_INT >= 31)
+            checkSelfPermission("android.permission.BLUETOOTH_CONNECT") ==
+                PackageManager.PERMISSION_GRANTED
+        else true
+
+        list.addView(Button(this).apply {
+            text = "最新の状態に更新"
+            textSize = 14f
+            isAllCaps = false
+            setTextColor(Color.BLACK)
+            setBackgroundColor(accentColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
+            ).apply { topMargin = dp(8) }
+            setOnClickListener { showTab(0) }
+        })
+
+        // ---------- ストレージ ----------
+        val st = DeviceStatus.storage(applicationContext)
+        list.addView(card().apply {
+            addView(sectionTitle("ストレージ"))
+            val pctColor = when {
+                st.percent >= 90 -> redColor
+                st.percent >= 75 -> yellowColor
+                else -> greenColor
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = "${DeviceStatus.formatBytes(st.usedBytes)} / " +
+                    DeviceStatus.formatBytes(st.totalBytes)
+                textSize = 20f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(textColor)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(6), 0, 0)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "使用率 ${st.percent}%　空き ${DeviceStatus.formatBytes(st.freeBytes)}"
+                textSize = 13f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(pctColor)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(2), 0, dp(8))
+            })
+            // 簡易バー
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(14))
+                addView(View(this@MainActivity).apply {
+                    setBackgroundColor(pctColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        0, dp(14), st.percent.coerceIn(1, 100).toFloat())
+                })
+                addView(View(this@MainActivity).apply {
+                    setBackgroundColor(bgColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        0, dp(14), (100 - st.percent).coerceIn(0, 99).toFloat())
+                })
+            })
+            st.volumes.forEach { v ->
+                addView(TextView(this@MainActivity).apply {
+                    text = "・${v.name}: ${DeviceStatus.formatBytes(v.usedBytes)} / " +
+                        DeviceStatus.formatBytes(v.totalBytes)
+                    textSize = 12f
+                    setTextColor(subColor)
+                    setPadding(0, dp(6), 0, 0)
+                })
+            }
+            if (st.percent >= 90) {
+                addView(TextView(this@MainActivity).apply {
+                    text = "空き容量が不足しています。OSの更新が適用できなくなることがあるため、" +
+                        "不要なファイルを整理してください。"
+                    textSize = 12f
+                    setTextColor(redColor)
+                    setPadding(0, dp(6), 0, 0)
+                })
+            }
+        })
+
+        // ---------- Androidバージョン ----------
+        val ver = DeviceStatus.version()
+        list.addView(card().apply {
+            addView(sectionTitle("Androidバージョン"))
+            addView(TextView(this@MainActivity).apply {
+                text = "${ver.codeName}（${ver.release}）"
+                textSize = 18f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(if (ver.needsAttention) yellowColor else greenColor)
+                setPadding(0, dp(6), 0, dp(4))
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "機種: ${ver.manufacturer} ${ver.model}\n" +
+                    "ビルド: ${ver.buildId}\n" +
+                    "セキュリティパッチ: ${ver.securityPatch}" +
+                    (if (ver.patchAgeDays >= 0) "（${ver.patchAgeDays}日前）" else "")
+                textSize = 12f
+                setTextColor(subColor)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = ver.updateHint
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(8), 0, 0)
+            })
+            addView(Button(this@MainActivity).apply {
+                text = "システム更新の画面を開く"
+                textSize = 13f
+                isAllCaps = false
+                setTextColor(Color.BLACK)
+                setBackgroundColor(accentColor)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+                ).apply { topMargin = dp(8) }
+                setOnClickListener { openSystemUpdate() }
+            })
+        })
+
+        // ---------- Wi-Fi ----------
+        val wifi = DeviceStatus.wifi(applicationContext, hasLocation)
+        list.addView(card().apply {
+            addView(sectionTitle("接続中のWi-Fi"))
+            addView(TextView(this@MainActivity).apply {
+                text = if (wifi.connected) wifi.ssid else "未接続"
+                textSize = 17f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(if (wifi.connected) greenColor else subColor)
+                setPadding(0, dp(6), 0, dp(4))
+            })
+            if (wifi.connected) {
+                addView(TextView(this@MainActivity).apply {
+                    text = listOf(
+                        if (wifi.security.isNotEmpty()) "暗号方式: ${wifi.security}" else "",
+                        if (wifi.linkSpeed.isNotEmpty()) "リンク速度: ${wifi.linkSpeed}" else "",
+                        if (wifi.ip.isNotEmpty()) "IPアドレス: ${wifi.ip}" else ""
+                    ).filter { it.isNotEmpty() }.joinToString("\n")
+                    textSize = 12f
+                    setTextColor(subColor)
+                })
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = wifi.note
+                textSize = 12f
+                setTextColor(if (wifi.connected) subColor else yellowColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+            if (!hasLocation) {
+                addView(Button(this@MainActivity).apply {
+                    text = "位置情報を許可してWi-Fi名を表示"
+                    textSize = 13f
+                    isAllCaps = false
+                    setTextColor(Color.BLACK)
+                    setBackgroundColor(yellowColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+                    ).apply { topMargin = dp(8) }
+                    setOnClickListener { requestStatusPermissions() }
+                })
+            }
+        })
+
+        // ---------- Bluetooth ----------
+        val bt = DeviceStatus.bluetooth(applicationContext, hasBt)
+        list.addView(card().apply {
+            addView(sectionTitle("Bluetooth"))
+            addView(TextView(this@MainActivity).apply {
+                text = when {
+                    !bt.supported -> "非対応"
+                    !bt.enabled -> "OFF"
+                    bt.connected.isNotEmpty() -> "接続中: ${bt.connected.size} 台"
+                    else -> "ON（接続中の機器なし）"
+                }
+                textSize = 16f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(if (bt.connected.isNotEmpty()) greenColor else subColor)
+                setPadding(0, dp(6), 0, dp(4))
+            })
+            bt.connected.forEach { d ->
+                addView(TextView(this@MainActivity).apply {
+                    text = "● ${d.name}（${d.type}）"
+                    textSize = 14f
+                    setTextColor(textColor)
+                })
+            }
+            if (bt.bonded.isNotEmpty()) {
+                addView(TextView(this@MainActivity).apply {
+                    text = "ペアリング済み（${bt.bonded.size} 台）:\n" +
+                        bt.bonded.joinToString("\n") { "・${it.name}（${it.type}）" }
+                    textSize = 12f
+                    setTextColor(subColor)
+                    setPadding(0, dp(6), 0, 0)
+                })
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = bt.note
+                textSize = 12f
+                setTextColor(if (bt.enabled) subColor else yellowColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+            if (Build.VERSION.SDK_INT >= 31 && !hasBt) {
+                addView(Button(this@MainActivity).apply {
+                    text = "「近くのデバイス」を許可"
+                    textSize = 13f
+                    isAllCaps = false
+                    setTextColor(Color.BLACK)
+                    setBackgroundColor(yellowColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+                    ).apply { topMargin = dp(8) }
+                    setOnClickListener { requestStatusPermissions() }
+                })
+            }
+        })
+
+        // ---------- 外部デバイス ----------
+        val usb = DeviceStatus.usbDevices(applicationContext)
+        list.addView(card().apply {
+            addView(sectionTitle("接続中の外部デバイス"))
+            if (usb.isEmpty()) {
+                addView(TextView(this@MainActivity).apply {
+                    text = "接続されていません"
+                    textSize = 14f
+                    setTextColor(subColor)
+                    setPadding(0, dp(6), 0, 0)
+                })
+            } else {
+                usb.forEach { d ->
+                    addView(TextView(this@MainActivity).apply {
+                        text = "● ${d.name}"
+                        textSize = 15f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(textColor)
+                        setPadding(0, dp(8), 0, 0)
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = d.detail
+                        textSize = 12f
+                        setTextColor(subColor)
+                    })
+                }
+                addView(TextView(this@MainActivity).apply {
+                    text = "身に覚えのない機器が接続されている場合は、すぐに取り外してください。"
+                    textSize = 12f
+                    setTextColor(yellowColor)
+                    setPadding(0, dp(8), 0, 0)
+                })
+            }
+        })
+
+        // ---------- 起動中のアプリ ----------
+        val (apps, appNote) = DeviceStatus.runningApps(applicationContext)
+        list.addView(card().apply {
+            addView(sectionTitle("起動中のアプリ"))
+            if (apps.isEmpty()) {
+                addView(TextView(this@MainActivity).apply {
+                    text = "取得できませんでした"
+                    textSize = 14f
+                    setTextColor(subColor)
+                    setPadding(0, dp(6), 0, 0)
+                })
+            } else {
+                apps.take(40).forEach { a ->
+                    addView(TextView(this@MainActivity).apply {
+                        text = "・${a.label}"
+                        textSize = 14f
+                        setTextColor(if (a.isForeground) greenColor else textColor)
+                        setPadding(0, dp(4), 0, 0)
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = "　${a.importance}　${a.packageName}"
+                        textSize = 11f
+                        setTextColor(subColor)
+                    })
+                }
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = appNote
+                textSize = 12f
+                setTextColor(yellowColor)
+                setPadding(0, dp(8), 0, dp(4))
+            })
+            addView(Button(this@MainActivity).apply {
+                text = "アプリの設定画面を開く"
+                textSize = 13f
+                isAllCaps = false
+                setTextColor(textColor)
+                setBackgroundColor(bgColor)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+                ).apply { topMargin = dp(4) }
+                setOnClickListener {
+                    openSafely(Intent(Settings.ACTION_APPLICATION_SETTINGS))
+                }
+            })
+        })
+
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    private fun sectionTitle(t: String): TextView = TextView(this).apply {
+        text = t
+        textSize = 15f
+        setTypeface(null, Typeface.BOLD)
+        setTextColor(accentColor)
+    }
+
+    private fun requestStatusPermissions() {
+        val perms = mutableListOf<String>()
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+            perms.add(android.Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (Build.VERSION.SDK_INT >= 31 &&
+            checkSelfPermission("android.permission.BLUETOOTH_CONNECT")
+            != PackageManager.PERMISSION_GRANTED) {
+            perms.add("android.permission.BLUETOOTH_CONNECT")
+        }
+        if (perms.isEmpty()) {
+            showTab(0)
+        } else {
+            requestPermissions(perms.toTypedArray(), REQ_STATUS_PERM)
+        }
+    }
+
+    private fun openSystemUpdate() {
+        val candidates = listOf(
+            Intent("android.settings.SYSTEM_UPDATE_SETTINGS"),
+            Intent("android.settings.DEVICE_INFO_SETTINGS"),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        for (i in candidates) {
+            try {
+                startActivity(i)
+                return
+            } catch (e: Exception) { }
+        }
+        Toast.makeText(this, "設定アプリから「システム更新」を開いてください",
+            Toast.LENGTH_LONG).show()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_STATUS_PERM) showTab(0)
     }
 
     // ===== VPN制御 =====
@@ -1755,7 +2166,7 @@ class MainActivity : Activity() {
         }
         startService(i)
         // UIを少し遅らせて更新
-        contentArea.postDelayed({ if (currentTab == 2) showTab(2) }, 300)
+        contentArea.postDelayed({ if (currentTab == 3) showTab(3) }, 300)
     }
 
     private var currentTab = 0
@@ -1767,7 +2178,7 @@ class MainActivity : Activity() {
                 action = DnsMonitorService.ACTION_START
             }
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
-            contentArea.postDelayed({ if (currentTab == 2) showTab(2) }, 500)
+            contentArea.postDelayed({ if (currentTab == 3) showTab(3) }, 500)
         } else if (requestCode == VPN_REQUEST) {
             AlertDialog.Builder(this)
                 .setTitle("VPNが許可されませんでした")

@@ -1,6 +1,23 @@
 # MamoriDX（守りのDX 2.0）HANDOFF
 
-## 現在バージョン: v6.0（「パソコン」タブ追加）
+## 現在バージョン: v7.0（「状態」タブ追加）
+
+## タブ構成（v7.0・2段×4）
+1段目: 状態(0) / 棚卸し(1) / 端末診断(2) / 通信ログ(3)
+2段目: 緊急対応(4) / パソコン(5) / ツール(6) / 説明書(7)
+説明書内ページ（2段・9項目、5+4＋ダミー）:
+概要(0)/状態(1)/棚卸し(2)/診断(3)/通信(4)/緊急(5)/パソコン(6)/ツール(7)/関所(8)
+※タブ追加時は各機能内の self-refresh showTab(n) を必ず追従修正すること（過去にズレ事故あり）
+
+## 状態タブ実装メモ（`DeviceStatus`）
+- ストレージ: Environment.getDataDirectory()のStatFsで内部、getExternalFilesDirs()の[1]以降で着脱可能領域。合算して使用率バー表示（90%以上赤/75%以上黄）
+- 外部デバイス: UsbManager.deviceList（productName/manufacturerName/vendorId/productId、deviceClass=0ならinterface[0]のクラスで種別判定）＋マウント済み外部ストレージ
+- バージョン: Build.VERSION.RELEASE/SDK_INT/SECURITY_PATCH、パッチ経過日数を算出。**更新有無の直接取得はOS仕様で不可**なため、古さ判定＋ACTION SYSTEM_UPDATE_SETTINGS→DEVICE_INFO_SETTINGS→ACTION_SETTINGSの順にフォールバックして案内
+- 起動中アプリ: runningAppProcesses＋getRunningServices(200)。**Android 5.0以降の制限で他アプリはほぼ取得不可**。取得数<=2なら制限の説明noteを返し、設定画面への導線を出す
+- Wi-Fi: WifiManager.connectionInfo。位置情報権限がないとSSIDが`<unknown ssid>`になるため、権限要求ボタンを表示。API31+はcurrentSecurityTypeで暗号方式も表示
+- Bluetooth: BluetoothManager.adapter。API31+はBLUETOOTH_CONNECT権限必須（未許可なら要求ボタン）。getConnectedDevices(GATT/GATT_SERVER)＋bondedDevices。**A2DP等のプロファイルはgetProfileProxy非同期が必要なため接続中判定に出ないことがある**旨をnoteとUIに明記
+- 権限要求: REQ_STATUS_PERM=3001でACCESS_FINE_LOCATIONとBLUETOOTH_CONNECTをまとめて要求、結果でshowTab(0)再描画
+- Manifest追加: BLUETOOTH_CONNECT / BLUETOOTH(maxSdkVersion=30)
 
 ## タブ構成（v6.0・2段表示）
 1段目: 棚卸し(0) / 端末診断(1) / 通信ログ(2) / 緊急対応(3)
