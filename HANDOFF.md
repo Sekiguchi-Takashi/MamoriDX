@@ -1,6 +1,24 @@
 # MamoriDX（守りのDX 2.0）HANDOFF
 
-## 現在バージョン: v7.0（「状態」タブ追加）
+## 現在バージョン: v8.0（タブを5大分類に再編＋バッテリー劣化度＋フォルダ集計）
+
+## タブ構成（v8.0）★重要：大分類5＋サブタブ方式
+```
+状態(0)  : 端末情報(0) / バッテリー(1) / フォルダ集計(2)
+通信(1)  : 通信ログ(0) / SaaS接続(1・ToolsActivity起動) / ルーター(2・ToolsActivity起動)
+診断(2)  : アプリ棚卸し(0) / 端末診断(1) / 緊急対応(2) / その他(3)
+PC(3)    : サブタブなし
+説明書(4): サブタブなし（内部に9ページの切替）
+```
+- サブタブ状態は statusSub / commsSub / diagSub。`showTab()`は大分類、`showSub()`は小分類、実描画は`renderContent()`
+- **画面内の自己再描画はすべて `renderContent()` を呼ぶこと**（`showTab(n)`で番号直書きしない。過去にタブ追加のたび番号ズレ事故が発生したため、この方式に統一した）
+- 説明書内ページ: 概要(0)/状態(1)/電池・集計(2)/通信(3)/棚卸し(4)/端末診断(5)/緊急(6)/PC(7)/その他(8)。5+4＋ダミーの2段
+- `buildToolsMenuView()`は現在未使用（将来の再利用のため残置）
+
+## v8.0 新機能
+- `BatteryHealth`(object): 設計容量を①android内部リソース`config_batteryCapacity`②リフレクションで`com.android.internal.os.PowerProfile.getBatteryCapacity()`の順に取得。現在容量は BATTERY_PROPERTY_CHARGE_COUNTER(µAh) ÷ 残量% で満充電容量を推定。健康度=現在/設計、劣化度=100-健康度。**取得不可の端末が一定数あるため available フラグで分岐し、その場合はOS報告値(EXTRA_HEALTH/温度/電圧)のみ表示**。API34+はCYCLE_COUNTも試行
+- `FolderDigest`(object): SAFで選んだフォルダを幅優先集計（最大4000ファイル）。カテゴリ別個数（文書/画像/動画/音声/圧縮/その他/拡張子なし/危険）＋危険拡張子の一覧。SharedPreferencesに対象フォルダと最大30回分のスナップショット履歴を保存し、前回との差分（総数増減・危険増加・カテゴリ別増減）を表示。同一URIを選ぶと既存記録に追記される
+- REQ_DIGEST_TREE=3002 で MainActivity の onActivityResult が処理（VPN_REQUESTと分岐）
 
 ## タブ構成（v7.0・2段×4）
 1段目: 状態(0) / 棚卸し(1) / 端末診断(2) / 通信ログ(3)

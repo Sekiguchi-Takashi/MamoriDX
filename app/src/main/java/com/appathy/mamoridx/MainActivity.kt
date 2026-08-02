@@ -102,36 +102,35 @@ class MainActivity : Activity() {
             setPadding(dp(16), 0, dp(16), dp(12))
         })
 
-        // ===== タブ（2段） =====
-        val tabNames = listOf("状態", "棚卸し", "端末診断", "通信ログ",
-            "緊急対応", "パソコン", "ツール", "説明書")
+        // ===== 大分類タブ（5つ） =====
+        val tabNames = listOf("状態", "通信", "診断", "PC", "説明書")
         tabButtons = tabNames.mapIndexed { index, name ->
             Button(this).apply {
                 text = name
-                textSize = 11f
+                textSize = 13f
                 isAllCaps = false
                 setPadding(0, 0, 0, 0)
                 setTextColor(textColor)
                 setBackgroundColor(cardColor)
-                layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply {
+                layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f).apply {
                     setMargins(dp(3), 0, dp(3), 0)
                 }
                 setOnClickListener { showTab(index) }
             }
         }
-        val tabRow1 = LinearLayout(this).apply {
+        val tabRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(8), 0, dp(8), dp(4))
+            setPadding(dp(8), 0, dp(8), dp(6))
         }
-        val tabRow2 = LinearLayout(this).apply {
+        tabButtons.forEach { tabRow.addView(it) }
+        root.addView(tabRow)
+
+        // ===== 小分類（サブタブ）の器 =====
+        subTabArea = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(8), 0, dp(8), dp(8))
         }
-        tabButtons.forEachIndexed { i, b ->
-            if (i < 4) tabRow1.addView(b) else tabRow2.addView(b)
-        }
-        root.addView(tabRow1)
-        root.addView(tabRow2)
+        root.addView(subTabArea)
 
         // ===== コンテンツ領域 =====
         contentArea = FrameLayout(this).apply {
@@ -145,23 +144,94 @@ class MainActivity : Activity() {
         showTab(0)
     }
 
+    /** 各大分類タブの小分類名 */
+    private fun subTabNames(tab: Int): List<String> = when (tab) {
+        0 -> listOf("端末情報", "バッテリー", "フォルダ集計")
+        1 -> listOf("通信ログ", "SaaS接続", "ルーター")
+        2 -> listOf("アプリ棚卸し", "端末診断", "緊急対応", "その他")
+        else -> emptyList()
+    }
+
     private fun showTab(index: Int) {
         currentTab = index
         tabButtons.forEachIndexed { i, b ->
             b.setBackgroundColor(if (i == index) accentColor else cardColor)
             b.setTextColor(if (i == index) Color.BLACK else textColor)
         }
-        contentArea.removeAllViews()
-        when (index) {
-            0 -> contentArea.addView(buildStatusView())
-            1 -> contentArea.addView(buildInventoryView())
-            2 -> contentArea.addView(buildPostureView())
-            3 -> contentArea.addView(buildCommsView())
-            4 -> contentArea.addView(buildEmergencyView())
-            5 -> contentArea.addView(buildPcView())
-            6 -> contentArea.addView(buildToolsMenuView())
-            7 -> contentArea.addView(buildManualView())
+        buildSubTabs(index)
+        renderContent()
+    }
+
+    private fun showSub(sub: Int) {
+        when (currentTab) {
+            0 -> statusSub = sub
+            1 -> commsSub = sub
+            2 -> diagSub = sub
         }
+        buildSubTabs(currentTab)
+        renderContent()
+    }
+
+    private fun currentSub(): Int = when (currentTab) {
+        0 -> statusSub
+        1 -> commsSub
+        2 -> diagSub
+        else -> 0
+    }
+
+    private fun buildSubTabs(tab: Int) {
+        subTabArea.removeAllViews()
+        val names = subTabNames(tab)
+        if (names.isEmpty()) {
+            subTabArea.visibility = View.GONE
+            return
+        }
+        subTabArea.visibility = View.VISIBLE
+        val cur = currentSub()
+        names.forEachIndexed { i, name ->
+            subTabArea.addView(Button(this).apply {
+                text = name
+                textSize = 11f
+                isAllCaps = false
+                setPadding(0, 0, 0, 0)
+                val sel = cur == i
+                setTextColor(if (sel) Color.BLACK else subColor)
+                setBackgroundColor(if (sel) greenColor else cardColor)
+                layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply {
+                    setMargins(dp(2), 0, dp(2), 0)
+                }
+                setOnClickListener { showSub(i) }
+            })
+        }
+    }
+
+    private fun renderContent() {
+        contentArea.removeAllViews()
+        val v = when (currentTab) {
+            0 -> when (statusSub) {
+                1 -> buildBatteryView()
+                2 -> buildDigestView()
+                else -> buildStatusView()
+            }
+            1 -> when (commsSub) {
+                1 -> buildToolLauncher(1, "SaaS接続確認",
+                    "契約中のSaaSのログイン先を登録し、公衆Wi-Fiで別サイトへの" +
+                    "リダイレクトや証明書のすり替えが起きていないか照合します。")
+                2 -> buildToolLauncher(2, "Wi-Fi／ルーター診断",
+                    "接続中のWi-Fiの暗号方式、ルーターの開放ポート、DNSの向き先を" +
+                    "確認して総合評価します。自宅の回線で実行してください。")
+                else -> buildCommsView()
+            }
+            2 -> when (diagSub) {
+                1 -> buildPostureView()
+                2 -> buildEmergencyView()
+                3 -> buildOtherView()
+                else -> buildInventoryView()
+            }
+            3 -> buildPcView()
+            else -> buildManualView()
+        }
+        contentArea.addView(v)
     }
 
     // =========================================================
@@ -427,8 +497,8 @@ class MainActivity : Activity() {
         }
 
         // 説明書内のページ切替（機能ごと）
-        val pageNames = listOf("概要", "状態", "棚卸し", "診断",
-            "通信", "緊急", "パソコン", "ツール", "関所")
+        val pageNames = listOf("概要", "状態", "電池・集計", "通信",
+            "棚卸し", "端末診断", "緊急", "PC", "その他")
         val pageBtns = pageNames.mapIndexed { i, name ->
             Button(this).apply {
                 text = name
@@ -443,7 +513,7 @@ class MainActivity : Activity() {
                 }
                 setOnClickListener {
                     manualPage = i
-                    showTab(7)
+                    renderContent()
                 }
             }
         }
@@ -500,17 +570,26 @@ class MainActivity : Activity() {
                     "③その代わり漏洩しない仕組み（ガードレール）を置く\n\n" +
                     "禁止ではなく、安全に使うための土台づくりです。")
 
-                section("機能と使う順番",
-                    "はじめての方は次の順で使うのがおすすめです。\n\n" +
-                    "手順1. 「状態」で端末の現況をざっと確認\n" +
-                    "手順2. 「端末診断」で土台（端末自体の防御力）を確認\n" +
-                    "手順3. 「アプリ棚卸し」で入っているアプリを3分類\n" +
-                    "手順4. 「通信ログ」でアプリの通信先（SaaS）を棚卸し\n" +
-                    "手順5. 「パソコン」で業務PCの対策状況を点検\n" +
-                    "手順6. 「ツール」で自宅ルーターと機器バージョンを点検\n" +
-                    "手順7. 日常の共有時は「関所」を通して漏洩を防止\n" +
-                    "　　　 怪しいリンクを踏んだ時は「緊急対応」へ\n\n" +
-                    "上の切替ボタンから各機能の詳しい説明書を開けます。")
+                section("画面の構成（5つのタブ）",
+                    "機能は次の5つに分類しています。各タブの上にある緑のボタンで、" +
+                    "さらに細かい機能を切り替えられます。\n\n" +
+                    "①状態 … 今のスマホの状況を見る\n" +
+                    "　端末情報／バッテリー／フォルダ集計\n\n" +
+                    "②通信 … Wi-Fiや通信に関すること\n" +
+                    "　通信ログ／SaaS接続／ルーター診断\n\n" +
+                    "③診断 … 調べる・緊急時に対応する\n" +
+                    "　アプリ棚卸し／端末診断／緊急対応／その他\n\n" +
+                    "④PC … パソコンの点検\n\n" +
+                    "⑤説明書 … この画面")
+
+                section("はじめての方の進め方",
+                    "手順1. 「状態」で今の端末の様子をひと通り見る\n" +
+                    "手順2. 「診断」→端末診断で土台の防御力を確認\n" +
+                    "手順3. 「診断」→アプリ棚卸しで入っているアプリを3分類\n" +
+                    "手順4. 「通信」→ルーター診断で自宅のWi-Fiを点検\n" +
+                    "手順5. 「PC」で業務パソコンの対策状況を点検\n" +
+                    "手順6. 日常の共有時は「関所」を通す（診断→その他に説明あり）\n\n" +
+                    "怪しいリンクを踏んだときは、すぐ「診断」→緊急対応へ。")
 
                 section("このアプリの通信について",
                     "診断結果・DNSログ・ポリシー・台帳は、すべて端末内にのみ保存され、" +
@@ -524,10 +603,11 @@ class MainActivity : Activity() {
                     "Less Motivation, More Automation.\n" +
                     "本アプリはスマホのみ（Termux + GitHub Actions）で開発されています。")
             }
-
             // ---------- 状態 ----------
             1 -> {
-                section("状態タブ｜これは何？",
+                section("状態タブ｜端末情報",
+                    "状態タブの「端末情報」画面の説明です。" +
+                    "バッテリーとフォルダ集計は次のページで説明します。\n\n" +
                     "端末の現在の状況をひと目で確認する画面です。" +
                     "普段の値を知っておくと、「いつもと違う」ことに気付けるようになります。\n\n" +
                     "画面を開くたびに自動で取得します。" +
@@ -574,72 +654,72 @@ class MainActivity : Activity() {
                     "【ストレージ】表示は端末全体の使用量です。" +
                     "アプリごとの内訳は端末の設定→ストレージで確認できます。")
             }
-
-            // ---------- アプリ棚卸し ----------
+            // ---------- 電池・集計 ----------
             2 -> {
-                section("アプリ棚卸しタブ｜これは何？",
-                    "端末にインストールされているアプリを自動でスキャンし、" +
-                    "リスクの高さで「許可済み／要監視／要対策」の3つに分類する機能です。" +
-                    "シャドーIT可視化の第一歩になります。")
+                section("バッテリーの劣化度｜これは何？",
+                    "バッテリーが新品時と比べてどれだけ劣化しているかを推定表示します。" +
+                    "劣化したバッテリーは急な電源断を招き、業務端末としての信頼性を下げます。")
 
                 section("使い方手順",
-                    "手順1. 画面上部の「アプリ棚卸し」タブを押す\n" +
-                    "手順2. 自動でスキャンが始まり、一覧が表示される（操作不要）\n" +
-                    "手順3. 一番上のサマリーで3分類の件数を確認\n" +
-                    "手順4. 気になるアプリをタップすると詳細画面が開く\n" +
-                    "手順5. 詳細の「守りのDX 2.0の考え方」に沿って対処する\n" +
-                    "手順6. 権限を減らしたい場合は、Androidの設定→アプリ→対象アプリ→権限 でOFFにする\n" +
-                    "手順7. 権限変更後にこのタブへ戻ると、分類が更新される")
+                    "手順1. 状態タブ →「バッテリー」を押す\n" +
+                    "手順2. 表示された劣化度と評価を確認\n" +
+                    "手順3. 値を安定させたい場合は、充電器を外し残量50〜80%程度で「再測定」")
 
                 section("見方",
-                    "● 許可済み（緑）: ストア入手で権限も最小限。そのまま利用OK\n" +
-                    "● 要監視（黄）: 危険権限が多め。権限の見直しで緑にできます\n" +
-                    "● 要対策（赤）: ストア外入手、または権限が非常に多い。まず入手元の確認を\n\n" +
-                    "各行の表示:\n" +
-                    "・1行目=アプリ名\n" +
-                    "・2行目=入手元（Playストア/不明など）とリスク点数\n" +
-                    "・3行目=分類バッジ\n\n" +
-                    "点数の計算式: 付与済みの危険権限1つ=1点、ストア外入手=+3点。" +
-                    "0〜2点=許可済み、3〜5点=要監視、6点以上またはストア外=要対策。")
+                    "・劣化◯% … 新品時からどれだけ容量が減ったかの推定値\n" +
+                    "・健康度◯% … 100%が新品相当。80%以上なら通常の使用範囲\n" +
+                    "・バーの色 … 緑=良好、黄=交換検討、赤=劣化大\n\n" +
+                    "目安:\n" +
+                    "・90%以上 … 良好\n" +
+                    "・80〜89% … 軽度の劣化。まだ交換不要\n" +
+                    "・70〜79% … 外出時に電池切れが起きやすい。交換検討\n" +
+                    "・70%未満 … 急な電源断の恐れ。交換推奨\n\n" +
+                    "あわせて残量・充電状態・温度・電圧・OS報告のバッテリー状態も表示します。" +
+                    "温度が45℃を超えている場合は警告が出ます。")
 
-                section("よくある質問",
-                    "Q. 赤＝削除すべき？\n" +
-                    "A. いいえ。守りのDX 2.0では即削除しません。業務に必要なら権限を最小化して使い続ける判断もあります。\n\n" +
-                    "Q. 一覧に出ないアプリがある\n" +
-                    "A. Android標準のシステムアプリは対象外です（ユーザーが入れたアプリのみ表示）。")
+                section("この機能の限界（重要）",
+                    "Androidには劣化度を返す公開APIがありません。" +
+                    "本アプリは端末内部の設計容量と充電カウンタから推定しています。\n\n" +
+                    "そのため、機種によっては「算出できませんでした」と表示されます。" +
+                    "これは異常ではなく、その端末が必要な値を公開していないためです。" +
+                    "その場合はOS報告の状態・温度・電圧を参考にし、" +
+                    "端末の設定→バッテリーもあわせてご確認ください。\n\n" +
+                    "算出できた場合も推定値であり、誤差があります。" +
+                    "残量が極端に少ない時や充電直後は特に誤差が大きくなります。" +
+                    "正確な数値が必要な場合はメーカーの点検を受けてください。")
+
+                section("フォルダ集計（ダイジェスト）｜これは何？",
+                    "選んだフォルダの中身を1画面で集計し、日付つきで記録します。" +
+                    "前回との差を見ることで「知らないうちにファイルが増えた」" +
+                    "「見覚えのない実行ファイルが入った」ことに気付けます。")
+
+                section("使い方手順",
+                    "手順1. 状態タブ →「フォルダ集計」を押す\n" +
+                    "手順2. 「フォルダを選んで集計」を押す\n" +
+                    "手順3. 対象フォルダ（ダウンロード等）を選んで「このフォルダを使用」\n" +
+                    "手順4. 集計結果を確認\n" +
+                    "手順5. 数日後、同じフォルダで「再集計」を押すと前回との差が出ます")
+
+                section("見方",
+                    "・大きな数字 … ファイル総数\n" +
+                    "・種類別の内訳 … 文書／画像／動画／音声／圧縮／その他／拡張子なし／危険\n" +
+                    "　「危険」は赤字で表示されます\n" +
+                    "・前回からの変化 … 増減数と、危険な拡張子の増加\n" +
+                    "・注意が必要なファイル … 該当ファイル名と理由の一覧\n\n" +
+                    "危険と判定する拡張子: 実行ファイル(.exe .scr等)、スクリプト(.bat .js .vbs等)、" +
+                    "インストーラ、ショートカット(.lnk)、マクロ付きOffice(.docm .xlsm等)、" +
+                    "Androidアプリ(.apk)。加えて二重拡張子（請求書.pdf.exe）も検出します。\n\n" +
+                    "同じフォルダを再集計すると記録が追記され、最大30回分の履歴が残ります。")
+
+                section("この機能の限界",
+                    "拡張子と名前による判定のみで、ウイルス定義は持ちません。" +
+                    "「危険0件＝安全」ではありません。\n\n" +
+                    "ファイル数が非常に多いフォルダは途中で打ち切られます（その旨が表示されます）。" +
+                    "端末全体ではなく、ダウンロードフォルダなど" +
+                    "変化を見たい場所を絞って使うのが効果的です。")
             }
-
-            // ---------- 端末診断 ----------
+            // ---------- 通信 ----------
             3 -> {
-                section("端末診断タブ｜これは何？",
-                    "アプリ単位ではなく、端末そのものの防御力を6項目でチェックし、" +
-                    "A/B/Cの総合判定を出す機能です。土台が弱いと、どんな対策も効果が半減します。")
-
-                section("使い方手順",
-                    "手順1. 画面上部の「端末診断」タブを押す\n" +
-                    "手順2. 自動で6項目のチェックが実行される（操作不要）\n" +
-                    "手順3. 一番上の総合判定（A/B/C）を確認\n" +
-                    "手順4. ×が付いた項目のカードを読む（対処方法が書いてあります）\n" +
-                    "手順5. Androidの設定画面で該当項目を修正する\n" +
-                    "手順6. このタブに戻り直すと再チェックされ、判定が更新される")
-
-                section("見方",
-                    "総合判定:\n" +
-                    "・A（良好）=全項目クリア\n" +
-                    "・B（要改善）=1〜2項目が未達\n" +
-                    "・C（要対策）=3項目以上が未達\n\n" +
-                    "6つのチェック項目:\n" +
-                    "①画面ロック: 紛失時の情報漏洩を防ぐ最重要項目\n" +
-                    "②USBデバッグ: ONだとPC接続でデータを抜かれる恐れ\n" +
-                    "③開発者オプション: 開発用途でなければOFF推奨\n" +
-                    "④セキュリティパッチ: 半年以上前なら×\n" +
-                    "⑤OSバージョン: 古いOSは脆弱性修正が届かないことがある\n" +
-                    "⑥ストア外アプリ: 棚卸しタブと連動した件数表示\n\n" +
-                    "優先順位: まず①画面ロック、次に④パッチ更新を対応してください。")
-            }
-
-            // ---------- 通信ログ ----------
-            4 -> {
                 section("通信ログタブ｜これは何？",
                     "端末内VPNの仕組みで、アプリが「どのドメイン（SaaS等）へ通信しようとしたか」を" +
                     "DNSレベルで記録する機能です。会社が把握していないSaaS利用（シャドーIT）の発見に使います。")
@@ -672,9 +752,69 @@ class MainActivity : Activity() {
                     "③記録されるのはドメイン名のみで、通信の中身（本文やパスワード）は一切見ません。" +
                     "ログは端末内保存・外部送信なし・最大500件です。")
             }
+            // ---------- 棚卸し ----------
+            4 -> {
+                section("アプリ棚卸しタブ｜これは何？",
+                    "端末にインストールされているアプリを自動でスキャンし、" +
+                    "リスクの高さで「許可済み／要監視／要対策」の3つに分類する機能です。" +
+                    "シャドーIT可視化の第一歩になります。")
 
-            // ---------- 緊急対応 ----------
+                section("使い方手順",
+                    "手順1. 画面上部の「アプリ棚卸し」タブを押す\n" +
+                    "手順2. 自動でスキャンが始まり、一覧が表示される（操作不要）\n" +
+                    "手順3. 一番上のサマリーで3分類の件数を確認\n" +
+                    "手順4. 気になるアプリをタップすると詳細画面が開く\n" +
+                    "手順5. 詳細の「守りのDX 2.0の考え方」に沿って対処する\n" +
+                    "手順6. 権限を減らしたい場合は、Androidの設定→アプリ→対象アプリ→権限 でOFFにする\n" +
+                    "手順7. 権限変更後にこのタブへ戻ると、分類が更新される")
+
+                section("見方",
+                    "● 許可済み（緑）: ストア入手で権限も最小限。そのまま利用OK\n" +
+                    "● 要監視（黄）: 危険権限が多め。権限の見直しで緑にできます\n" +
+                    "● 要対策（赤）: ストア外入手、または権限が非常に多い。まず入手元の確認を\n\n" +
+                    "各行の表示:\n" +
+                    "・1行目=アプリ名\n" +
+                    "・2行目=入手元（Playストア/不明など）とリスク点数\n" +
+                    "・3行目=分類バッジ\n\n" +
+                    "点数の計算式: 付与済みの危険権限1つ=1点、ストア外入手=+3点。" +
+                    "0〜2点=許可済み、3〜5点=要監視、6点以上またはストア外=要対策。")
+
+                section("よくある質問",
+                    "Q. 赤＝削除すべき？\n" +
+                    "A. いいえ。守りのDX 2.0では即削除しません。業務に必要なら権限を最小化して使い続ける判断もあります。\n\n" +
+                    "Q. 一覧に出ないアプリがある\n" +
+                    "A. Android標準のシステムアプリは対象外です（ユーザーが入れたアプリのみ表示）。")
+            }
+            // ---------- 端末診断 ----------
             5 -> {
+                section("端末診断タブ｜これは何？",
+                    "アプリ単位ではなく、端末そのものの防御力を6項目でチェックし、" +
+                    "A/B/Cの総合判定を出す機能です。土台が弱いと、どんな対策も効果が半減します。")
+
+                section("使い方手順",
+                    "手順1. 画面上部の「端末診断」タブを押す\n" +
+                    "手順2. 自動で6項目のチェックが実行される（操作不要）\n" +
+                    "手順3. 一番上の総合判定（A/B/C）を確認\n" +
+                    "手順4. ×が付いた項目のカードを読む（対処方法が書いてあります）\n" +
+                    "手順5. Androidの設定画面で該当項目を修正する\n" +
+                    "手順6. このタブに戻り直すと再チェックされ、判定が更新される")
+
+                section("見方",
+                    "総合判定:\n" +
+                    "・A（良好）=全項目クリア\n" +
+                    "・B（要改善）=1〜2項目が未達\n" +
+                    "・C（要対策）=3項目以上が未達\n\n" +
+                    "6つのチェック項目:\n" +
+                    "①画面ロック: 紛失時の情報漏洩を防ぐ最重要項目\n" +
+                    "②USBデバッグ: ONだとPC接続でデータを抜かれる恐れ\n" +
+                    "③開発者オプション: 開発用途でなければOFF推奨\n" +
+                    "④セキュリティパッチ: 半年以上前なら×\n" +
+                    "⑤OSバージョン: 古いOSは脆弱性修正が届かないことがある\n" +
+                    "⑥ストア外アプリ: 棚卸しタブと連動した件数表示\n\n" +
+                    "優先順位: まず①画面ロック、次に④パッチ更新を対応してください。")
+            }
+            // ---------- 緊急 ----------
+            6 -> {
                 section("緊急対応タブ｜これは何？",
                     "怪しいリンクを踏んでしまった／踏みそうな時のための機能です。" +
                     "「開く前の検査」「踏んだ後の侵害チェック」「応急処置の手順」の3つが入っています。")
@@ -733,9 +873,8 @@ class MainActivity : Activity() {
                     "データのバックアップ後に端末の初期化を検討し、" +
                     "会社端末なら情報システム部門へ相談してください。")
             }
-
-            // ---------- パソコン ----------
-            6 -> {
+            // ---------- PC ----------
+            7 -> {
                 section("パソコンタブ｜これは何？",
                     "パソコンは使い方によって必要な対策が変わります。" +
                     "利用目的を選ぶと、その用途で本当に必要な項目だけのチェックリストが出て、" +
@@ -797,12 +936,11 @@ class MainActivity : Activity() {
                     "現在の値を確認してからチェックを入れてください。" +
                     "また、社内規程や業界基準がある場合は、そちらとの整合も別途確認が必要です。")
             }
-
-            // ---------- ツール ----------
-            7 -> {
-                section("ツールタブ｜これは何？",
-                    "ツールタブには、日常点検のための4つの機能が入っています。" +
-                    "それぞれ『開く』を押すと専用画面が開きます。")
+            // ---------- その他 ----------
+            8 -> {
+                section("その他｜これは何？",
+                    "分類しきれない機能をまとめています。" +
+                    "『開く』を押すと専用画面が開きます。")
 
                 section("① 外部メディア検査の手順",
                     "手順1. USBメモリやSDカードを端末に接続する（USBは変換アダプタが必要）\n" +
@@ -864,10 +1002,7 @@ class MainActivity : Activity() {
                     "接続先は利用者が登録したURLのみで、当アプリの開発者や第三者へは" +
                     "何も送信されません。①外部メディア検査と③ルーター診断は" +
                     "外部への通信を行いません。")
-            }
 
-            // ---------- 関所 ----------
-            8 -> {
                 section("関所（漏洩ガード）｜これは何？",
                     "他のアプリからテキストや画像を共有するときに一度経由させる『検問所』です。" +
                     "マイナンバーやカード番号、機密キーワードが含まれていないか転送前に検査します。" +
@@ -965,7 +1100,7 @@ class MainActivity : Activity() {
                 ).apply { topMargin = dp(8) }
                 setOnClickListener {
                     DnsLogStore.clear(applicationContext)
-                    showTab(3)
+                    renderContent()
                 }
             })
         })
@@ -1041,7 +1176,7 @@ class MainActivity : Activity() {
                             .setPositiveButton("OK", null)
                             .show()
                     }
-                    showTab(3)
+                    renderContent()
                 }
             })
         }
@@ -1138,7 +1273,7 @@ class MainActivity : Activity() {
                         setOnClickListener {
                             emergencyHours = h
                             emergencyScanned = true
-                            showTab(4)
+                            renderContent()
                         }
                     })
                 }
@@ -1154,7 +1289,7 @@ class MainActivity : Activity() {
                 ).apply { topMargin = dp(8) }
                 setOnClickListener {
                     emergencyScanned = true
-                    showTab(4)
+                    renderContent()
                 }
             })
         })
@@ -1546,7 +1681,7 @@ class MainActivity : Activity() {
                             setOnClickListener {
                                 pcOs = v
                                 PcAdvisor.saveOs(applicationContext, v)
-                                showTab(5)
+                                renderContent()
                             }
                         })
                     }
@@ -1582,7 +1717,7 @@ class MainActivity : Activity() {
                         if (sel) purposes.remove(v) else purposes.add(v)
                         PcAdvisor.savePurposes(applicationContext, purposes)
                         pcReport = null
-                        showTab(5)
+                        renderContent()
                     }
                 })
             }
@@ -1759,7 +1894,7 @@ class MainActivity : Activity() {
             ).apply { topMargin = dp(16) }
             setOnClickListener {
                 pcReport = PcAdvisor.evaluate(purposes, checked)
-                showTab(5)
+                renderContent()
             }
         })
 
@@ -1780,7 +1915,7 @@ class MainActivity : Activity() {
                         checked.clear()
                         PcAdvisor.saveChecked(applicationContext, checked)
                         pcReport = null
-                        showTab(5)
+                        renderContent()
                     }
                     .setNegativeButton("やめる", null)
                     .show()
@@ -1818,7 +1953,7 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
             ).apply { topMargin = dp(8) }
-            setOnClickListener { showTab(0) }
+            setOnClickListener { renderContent() }
         })
 
         // ---------- ストレージ ----------
@@ -2121,7 +2256,7 @@ class MainActivity : Activity() {
             perms.add("android.permission.BLUETOOTH_CONNECT")
         }
         if (perms.isEmpty()) {
-            showTab(0)
+            renderContent()
         } else {
             requestPermissions(perms.toTypedArray(), REQ_STATUS_PERM)
         }
@@ -2146,7 +2281,543 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(
         requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_STATUS_PERM) showTab(0)
+        if (requestCode == REQ_STATUS_PERM) renderContent()
+    }
+
+    // =========================================================
+    // 状態 > バッテリー
+    // =========================================================
+    private fun buildBatteryView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+        val b = BatteryHealth.read(applicationContext)
+
+        list.addView(card().apply {
+            addView(sectionTitle("バッテリーの劣化度"))
+            if (b.available) {
+                val c = when {
+                    b.healthPercent >= 90 -> greenColor
+                    b.healthPercent >= 80 -> greenColor
+                    b.healthPercent >= 70 -> yellowColor
+                    else -> redColor
+                }
+                addView(TextView(this@MainActivity).apply {
+                    text = "劣化 ${b.wearPercent}%"
+                    textSize = 26f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(c)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(8), 0, 0)
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = "健康度 ${b.healthPercent}%（新品時を100%とした推定）"
+                    textSize = 13f
+                    setTextColor(c)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(2), 0, dp(8))
+                })
+                addView(LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(14))
+                    addView(View(this@MainActivity).apply {
+                        setBackgroundColor(c)
+                        layoutParams = LinearLayout.LayoutParams(
+                            0, dp(14), b.healthPercent.coerceIn(1, 100).toFloat())
+                    })
+                    addView(View(this@MainActivity).apply {
+                        setBackgroundColor(bgColor)
+                        layoutParams = LinearLayout.LayoutParams(
+                            0, dp(14), (100 - b.healthPercent).coerceIn(0, 99).toFloat())
+                    })
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = "設計容量 ${b.designCapacityMah} mAh → 現在 約${b.currentCapacityMah} mAh"
+                    textSize = 13f
+                    setTextColor(textColor)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(8), 0, 0)
+                })
+            } else {
+                addView(TextView(this@MainActivity).apply {
+                    text = "算出できませんでした"
+                    textSize = 17f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(yellowColor)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(8), 0, dp(4))
+                })
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = b.note
+                textSize = 12f
+                setTextColor(subColor)
+                setPadding(0, dp(10), 0, 0)
+            })
+        })
+
+        list.addView(card().apply {
+            addView(sectionTitle("現在の状態"))
+            addView(TextView(this@MainActivity).apply {
+                text = listOf(
+                    if (b.level >= 0) "残量: ${b.level}%" else "",
+                    "充電状態: ${b.statusText}",
+                    "OS報告の状態: ${b.healthText}",
+                    if (b.temperatureC > 0)
+                        String.format(Locale.US, "温度: %.1f ℃", b.temperatureC) else "",
+                    if (b.voltageV > 0)
+                        String.format(Locale.US, "電圧: %.2f V", b.voltageV) else "",
+                    "種類: ${b.technology}",
+                    if (b.cycleCount >= 0) "充放電回数: ${b.cycleCount} 回" else ""
+                ).filter { it.isNotEmpty() }.joinToString("\n")
+                textSize = 14f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+        })
+
+        list.addView(card().apply {
+            addView(sectionTitle("評価と対策"))
+            addView(TextView(this@MainActivity).apply {
+                text = b.advice
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+        })
+
+        list.addView(Button(this).apply {
+            text = "バッテリーの設定画面を開く"
+            textSize = 13f
+            isAllCaps = false
+            setTextColor(textColor)
+            setBackgroundColor(cardColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+            ).apply { topMargin = dp(10) }
+            setOnClickListener {
+                openSafely(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+            }
+        })
+
+        list.addView(Button(this).apply {
+            text = "再測定"
+            textSize = 14f
+            isAllCaps = false
+            setTextColor(Color.BLACK)
+            setBackgroundColor(accentColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
+            ).apply { topMargin = dp(8) }
+            setOnClickListener { renderContent() }
+        })
+
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    // =========================================================
+    // 状態 > フォルダ集計（ダイジェスト）
+    // =========================================================
+    private val REQ_DIGEST_TREE = 3002
+    private var digestBusy = false
+    private var digestResult: FolderDigest.Snapshot? = null
+    private var digestTargetId: String? = null
+    private var digestDiff: FolderDigest.Diff? = null
+
+    private fun buildDigestView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        list.addView(card().apply {
+            addView(sectionTitle("フォルダ集計（ダイジェスト）"))
+            addView(TextView(this@MainActivity).apply {
+                text = "選んだフォルダの中身を1画面で集計し、日付つきで記録します。" +
+                    "前回との差を見ることで「知らないうちに増えた」ことに気付けます。\n\n" +
+                    "手順1. 「フォルダを選んで集計」を押す\n" +
+                    "手順2. 対象フォルダを選ぶ（ダウンロード等）\n" +
+                    "手順3. 集計結果と前回からの増減を確認\n" +
+                    "手順4. ときどき同じフォルダで再集計する"
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+        })
+
+        list.addView(Button(this).apply {
+            text = if (digestBusy) "集計中…" else "フォルダを選んで集計"
+            textSize = 14f
+            isAllCaps = false
+            setTextColor(Color.BLACK)
+            setBackgroundColor(accentColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)
+            ).apply { topMargin = dp(10) }
+            setOnClickListener {
+                if (!digestBusy) {
+                    try {
+                        startActivityForResult(
+                            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }, REQ_DIGEST_TREE)
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity,
+                            "フォルダ選択画面を開けませんでした", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        })
+
+        if (digestBusy) {
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = "集計しています…"
+                    textSize = 14f
+                    setTextColor(textColor)
+                })
+            })
+        }
+
+        // ---- 今回の集計結果 ----
+        val r = digestResult
+        if (r != null) {
+            list.addView(card().apply {
+                addView(sectionTitle("集計結果"))
+                addView(TextView(this@MainActivity).apply {
+                    text = "${r.totalFiles} 個"
+                    textSize = 28f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(textColor)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(6), 0, 0)
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = "ファイル総数（フォルダ ${r.totalDirs} 個）\n" +
+                        SimpleDateFormat("yyyy/M/d HH:mm", Locale.JAPAN)
+                            .format(Date(r.time)) + " 時点" +
+                        (if (r.truncated) "\n※件数が多いため途中で打ち切りました" else "")
+                    textSize = 12f
+                    setTextColor(subColor)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(4), 0, dp(8))
+                })
+                r.byCategory.entries.sortedByDescending { it.value }.forEach { (cat, n) ->
+                    addView(LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, dp(3), 0, dp(3))
+                        addView(TextView(this@MainActivity).apply {
+                            text = if (cat == "危険") "● $cat" else "・$cat"
+                            textSize = 14f
+                            setTextColor(if (cat == "危険") redColor else textColor)
+                            layoutParams = LinearLayout.LayoutParams(0,
+                                LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = "$n 個"
+                            textSize = 14f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(if (cat == "危険") redColor else textColor)
+                        })
+                    })
+                }
+            })
+
+            // ---- 前回との差分 ----
+            val d = digestDiff
+            if (d != null) {
+                list.addView(card().apply {
+                    addView(sectionTitle("前回からの変化"))
+                    addView(TextView(this@MainActivity).apply {
+                        text = "前回: " + SimpleDateFormat("yyyy/M/d HH:mm", Locale.JAPAN)
+                            .format(Date(d.prevTime))
+                        textSize = 12f
+                        setTextColor(subColor)
+                        setPadding(0, dp(4), 0, dp(4))
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = when {
+                            d.fileDelta > 0 -> "ファイルが ${d.fileDelta} 個 増えました"
+                            d.fileDelta < 0 -> "ファイルが ${-d.fileDelta} 個 減りました"
+                            else -> "ファイル数に変化はありません"
+                        }
+                        textSize = 16f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(if (d.fileDelta > 0) yellowColor else textColor)
+                    })
+                    if (d.riskyDelta > 0) {
+                        addView(TextView(this@MainActivity).apply {
+                            text = "うち危険な拡張子が ${d.riskyDelta} 個 増えています。" +
+                                "心当たりがない場合は下の一覧を確認してください。"
+                            textSize = 13f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(redColor)
+                            setPadding(0, dp(6), 0, 0)
+                        })
+                    }
+                    if (d.categoryDelta.isNotEmpty()) {
+                        addView(TextView(this@MainActivity).apply {
+                            text = d.categoryDelta.entries
+                                .sortedByDescending { kotlin.math.abs(it.value) }
+                                .joinToString("\n") { (c, v) ->
+                                    "・$c: ${if (v > 0) "+$v" else "$v"}"
+                                }
+                            textSize = 13f
+                            setTextColor(textColor)
+                            setPadding(0, dp(6), 0, 0)
+                        })
+                    }
+                })
+            }
+
+            // ---- 危険な拡張子の一覧 ----
+            if (r.riskyFiles.isNotEmpty()) {
+                list.addView(card().apply {
+                    addView(TextView(this@MainActivity).apply {
+                        text = "注意が必要なファイル（${r.riskyFiles.size} 件）"
+                        textSize = 15f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(redColor)
+                    })
+                    addView(TextView(this@MainActivity).apply {
+                        text = "身に覚えのないものは開かないでください。" +
+                            "詳しい検査は診断タブ→その他→外部メディア検査で行えます。"
+                        textSize = 12f
+                        setTextColor(subColor)
+                        setPadding(0, dp(4), 0, 0)
+                    })
+                })
+                r.riskyFiles.take(50).forEach { f ->
+                    list.addView(card().apply {
+                        addView(TextView(this@MainActivity).apply {
+                            text = f.name
+                            textSize = 14f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(redColor)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = "${f.path}\n${f.reason}"
+                            textSize = 12f
+                            setTextColor(subColor)
+                            setPadding(0, dp(2), 0, 0)
+                        })
+                    })
+                }
+            }
+        }
+
+        // ---- 記録済みフォルダと履歴 ----
+        val targets = FolderDigest.targets(applicationContext)
+        if (targets.isNotEmpty()) {
+            list.addView(card().apply {
+                addView(sectionTitle("記録している集計"))
+            })
+            targets.forEach { t ->
+                val hist = FolderDigest.history(applicationContext, t.id)
+                list.addView(card().apply {
+                    addView(TextView(this@MainActivity).apply {
+                        text = t.name
+                        textSize = 15f
+                        setTypeface(null, Typeface.BOLD)
+                        setTextColor(textColor)
+                    })
+                    if (hist.isEmpty()) {
+                        addView(TextView(this@MainActivity).apply {
+                            text = "記録なし"
+                            textSize = 12f
+                            setTextColor(subColor)
+                        })
+                    } else {
+                        addView(TextView(this@MainActivity).apply {
+                            text = hist.reversed().take(10).joinToString("\n") { s ->
+                                SimpleDateFormat("yyyy/M/d HH:mm", Locale.JAPAN)
+                                    .format(Date(s.time)) +
+                                "　${s.totalFiles} 個" +
+                                (if (s.riskyCount > 0) "（危険 ${s.riskyCount}）" else "")
+                            }
+                            textSize = 12f
+                            setTextColor(textColor)
+                            setPadding(0, dp(6), 0, 0)
+                        })
+                    }
+                    addView(LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { topMargin = dp(8) }
+                        addView(Button(this@MainActivity).apply {
+                            text = "再集計"
+                            textSize = 11f
+                            isAllCaps = false
+                            setPadding(0, 0, 0, 0)
+                            setTextColor(Color.BLACK)
+                            setBackgroundColor(accentColor)
+                            layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f)
+                                .apply { setMargins(dp(2), 0, dp(2), 0) }
+                            setOnClickListener { runDigest(Uri.parse(t.uri), t.id, t.name) }
+                        })
+                        addView(Button(this@MainActivity).apply {
+                            text = "削除"
+                            textSize = 11f
+                            isAllCaps = false
+                            setPadding(0, 0, 0, 0)
+                            setTextColor(textColor)
+                            setBackgroundColor(bgColor)
+                            layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f)
+                                .apply { setMargins(dp(2), 0, dp(2), 0) }
+                            setOnClickListener {
+                                AlertDialog.Builder(this@MainActivity)
+                                    .setTitle("確認")
+                                    .setMessage("「${t.name}」の記録を削除しますか？")
+                                    .setPositiveButton("削除") { _, _ ->
+                                        FolderDigest.removeTarget(applicationContext, t.id)
+                                        if (digestTargetId == t.id) {
+                                            digestResult = null; digestDiff = null
+                                        }
+                                        renderContent()
+                                    }
+                                    .setNegativeButton("やめる", null)
+                                    .show()
+                            }
+                        })
+                    })
+                })
+            }
+        }
+
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    private fun runDigest(uri: Uri, targetId: String, name: String) {
+        digestBusy = true
+        digestResult = null
+        digestDiff = null
+        renderContent()
+        Thread {
+            val snap = try {
+                FolderDigest.scan(applicationContext, uri)
+            } catch (e: Exception) {
+                FolderDigest.Snapshot(System.currentTimeMillis(), 0, 0,
+                    emptyMap(), 0, false, emptyList())
+            }
+            val prev = FolderDigest.history(applicationContext, targetId).lastOrNull()
+            val d = FolderDigest.diff(prev, snap)
+            FolderDigest.record(applicationContext, targetId, snap)
+            runOnUiThread {
+                digestBusy = false
+                digestResult = snap
+                digestDiff = d
+                digestTargetId = targetId
+                renderContent()
+            }
+        }.start()
+    }
+
+    // =========================================================
+    // 通信 > ツール起動カード
+    // =========================================================
+    private fun buildToolLauncher(page: Int, title: String, desc: String): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+        list.addView(card().apply {
+            addView(sectionTitle(title))
+            addView(TextView(this@MainActivity).apply {
+                text = desc
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+            addView(Button(this@MainActivity).apply {
+                text = "開く"
+                textSize = 15f
+                isAllCaps = false
+                setTextColor(Color.BLACK)
+                setBackgroundColor(accentColor)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(48)
+                ).apply { topMargin = dp(10) }
+                setOnClickListener {
+                    try {
+                        startActivity(Intent(this@MainActivity, ToolsActivity::class.java)
+                            .putExtra(ToolsActivity.EXTRA_PAGE, page))
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity,
+                            "画面を開けませんでした", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            })
+        })
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    // =========================================================
+    // 診断 > その他
+    // =========================================================
+    private fun buildOtherView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        val tools = listOf(
+            Triple(0, "外部メディア検査",
+                "USBメモリやSDカードの中身を調べ、実行ファイル・二重拡張子・" +
+                "ファイル名偽装・拡張子と中身の不一致を指摘します。"),
+            Triple(3, "機器バージョン台帳",
+                "ルーターやPCのバージョンを記録し、メーカーの更新情報ページの" +
+                "変化を検知して知らせます。")
+        )
+
+        tools.forEach { (idx, title, desc) ->
+            list.addView(card().apply {
+                addView(sectionTitle(title))
+                addView(TextView(this@MainActivity).apply {
+                    text = desc
+                    textSize = 13f
+                    setTextColor(textColor)
+                    setPadding(0, dp(6), 0, dp(4))
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = "開く"
+                    textSize = 14f
+                    isAllCaps = false
+                    setTextColor(Color.BLACK)
+                    setBackgroundColor(accentColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+                    ).apply { topMargin = dp(6) }
+                    setOnClickListener {
+                        try {
+                            startActivity(Intent(this@MainActivity, ToolsActivity::class.java)
+                                .putExtra(ToolsActivity.EXTRA_PAGE, idx))
+                        } catch (e: Exception) { }
+                    }
+                })
+            })
+        }
+
+        // 関所の案内
+        list.addView(card().apply {
+            addView(sectionTitle("関所（漏洩ガード）"))
+            addView(TextView(this@MainActivity).apply {
+                text = "他のアプリでテキストや画像を共有するとき、共有先の一覧から" +
+                    "『守りのDX関所』を選ぶと、転送前に内容を検査します。\n\n" +
+                    "検査項目: マイナンバー（検査番号まで照合）、クレジットカード番号、" +
+                    "機密キーワード、画像の位置情報、リンクの安全性。\n\n" +
+                    "この機能は他のアプリの共有メニューから使うため、" +
+                    "ここには操作ボタンがありません。使い方は説明書タブをご覧ください。"
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+        })
+
+        return ScrollView(this).apply { addView(list) }
     }
 
     // ===== VPN制御 =====
@@ -2166,19 +2837,39 @@ class MainActivity : Activity() {
         }
         startService(i)
         // UIを少し遅らせて更新
-        contentArea.postDelayed({ if (currentTab == 3) showTab(3) }, 300)
+        contentArea.postDelayed({ if (currentTab == 1 && commsSub == 0) renderContent() }, 300)
     }
 
     private var currentTab = 0
+    private var statusSub = 0
+    private var commsSub = 0
+    private var diagSub = 0
+    private lateinit var subTabArea: LinearLayout
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_DIGEST_TREE && resultCode == Activity.RESULT_OK) {
+            val uri = data?.data ?: return
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: Exception) { }
+            val name = uri.lastPathSegment?.substringAfterLast(':')
+                ?.ifEmpty { "選択フォルダ" } ?: "選択フォルダ"
+            // 同じフォルダなら既存の記録に追記する
+            val existing = FolderDigest.targets(applicationContext)
+                .firstOrNull { it.uri == uri.toString() }
+            val target = existing
+                ?: FolderDigest.addTarget(applicationContext, name, uri.toString())
+            runDigest(uri, target.id, target.name)
+            return
+        }
         if (requestCode == VPN_REQUEST && resultCode == Activity.RESULT_OK) {
             val i = Intent(this, DnsMonitorService::class.java).apply {
                 action = DnsMonitorService.ACTION_START
             }
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
-            contentArea.postDelayed({ if (currentTab == 3) showTab(3) }, 500)
+            contentArea.postDelayed({ if (currentTab == 1 && commsSub == 0) renderContent() }, 500)
         } else if (requestCode == VPN_REQUEST) {
             AlertDialog.Builder(this)
                 .setTitle("VPNが許可されませんでした")
