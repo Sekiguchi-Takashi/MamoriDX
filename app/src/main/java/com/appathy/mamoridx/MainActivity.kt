@@ -127,7 +127,7 @@ class MainActivity : Activity() {
 
         // ===== 小分類（サブタブ）の器 =====
         subTabArea = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+            orientation = LinearLayout.VERTICAL
             setPadding(dp(8), 0, dp(8), dp(8))
         }
         root.addView(subTabArea)
@@ -148,7 +148,8 @@ class MainActivity : Activity() {
     private fun subTabNames(tab: Int): List<String> = when (tab) {
         0 -> listOf("端末情報", "バッテリー", "フォルダ集計")
         1 -> listOf("通信ログ", "SaaS接続", "ルーター")
-        2 -> listOf("アプリ棚卸し", "端末診断", "緊急対応", "その他")
+        2 -> listOf("アプリ棚卸し", "端末診断", "緊急対応",
+            "APK掃除", "権限監査", "その他")
         else -> emptyList()
     }
 
@@ -188,20 +189,41 @@ class MainActivity : Activity() {
         }
         subTabArea.visibility = View.VISIBLE
         val cur = currentSub()
-        names.forEachIndexed { i, name ->
-            subTabArea.addView(Button(this).apply {
-                text = name
-                textSize = 11f
-                isAllCaps = false
-                setPadding(0, 0, 0, 0)
-                val sel = cur == i
-                setTextColor(if (sel) Color.BLACK else subColor)
-                setBackgroundColor(if (sel) greenColor else cardColor)
-                layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply {
-                    setMargins(dp(2), 0, dp(2), 0)
+        // 1行あたり最大3つ。多い場合は複数行に折り返す
+        val perRow = if (names.size <= 3) names.size else 3
+        val rows = (names.size + perRow - 1) / perRow
+        for (r in 0 until rows) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { if (r > 0) topMargin = dp(4) }
+            }
+            for (col in 0 until perRow) {
+                val i = r * perRow + col
+                if (i >= names.size) {
+                    // 幅を揃えるためのダミー
+                    row.addView(View(this).apply {
+                        layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f)
+                    })
+                    continue
                 }
-                setOnClickListener { showSub(i) }
-            })
+                val sel = cur == i
+                row.addView(Button(this).apply {
+                    text = names[i]
+                    textSize = 11f
+                    isAllCaps = false
+                    setPadding(0, 0, 0, 0)
+                    setTextColor(if (sel) Color.BLACK else subColor)
+                    setBackgroundColor(if (sel) greenColor else cardColor)
+                    layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply {
+                        setMargins(dp(2), 0, dp(2), 0)
+                    }
+                    setOnClickListener { showSub(i) }
+                })
+            }
+            subTabArea.addView(row)
         }
     }
 
@@ -225,7 +247,9 @@ class MainActivity : Activity() {
             2 -> when (diagSub) {
                 1 -> buildPostureView()
                 2 -> buildEmergencyView()
-                3 -> buildOtherView()
+                3 -> buildApkCleanView()
+                4 -> buildA11yAuditView()
+                5 -> buildOtherView()
                 else -> buildInventoryView()
             }
             3 -> buildPcView()
@@ -938,6 +962,60 @@ class MainActivity : Activity() {
             }
             // ---------- その他 ----------
             8 -> {
+                section("APK掃除｜これは何？",
+                    "端末に残ったAPK（アプリのインストール用ファイル）を探して一括削除する機能です。\n\n" +
+                    "APKが残っていると、誤って実行して不正アプリを入れてしまう危険があります。" +
+                    "また古いAPKは既知の弱点を含んだままのことが多く、置いておく利点はほぼありません。")
+
+                section("APK掃除の使い方手順",
+                    "手順1. 診断タブ →「APK掃除」を押す\n" +
+                    "手順2. 「フォルダを選んでAPKを探す」を押す\n" +
+                    "手順3. ダウンロードフォルダなど、対象を選んで「このフォルダを使用」\n" +
+                    "　（端末全体を対象にしたい場合は内部ストレージの最上位を選ぶ）\n" +
+                    "手順4. 見つかった一覧とファイル名・サイズ・日付を確認\n" +
+                    "手順5. 問題なければ「すべて削除」→確認画面で「削除する」\n" +
+                    "手順6. 削除後は自動で再検索され、結果が更新されます\n\n" +
+                    "削除は取り消せません。必要なAPKがある場合は先に別の場所へ移してください。")
+
+                section("提供元不明アプリの許可について",
+                    "同じ画面の下半分に、「ストアを経由せずアプリを導入できる」許可が" +
+                    "付いているアプリの一覧が出ます。これは不正アプリの主要な侵入口です。\n\n" +
+                    "見方:\n" +
+                    "・赤 … 心当たりがなければ無効化を推奨\n" +
+                    "・黄 … ブラウザやファイル管理アプリ。自分でアプリを入れないなら無効化\n\n" +
+                    "【重要】Androidの仕様上、この設定をアプリから直接変更することはできません。" +
+                    "「インストール許可の設定を開く」または各アプリの「設定を開く」ボタンから、" +
+                    "端末の設定画面で切り替えてください。")
+
+                section("権限監査（ユーザー補助）｜これは何？",
+                    "ユーザー補助（アクセシビリティ）権限を持つアプリの一覧と、" +
+                    "そのリスク評価を表示します。\n\n" +
+                    "この権限は「画面に表示されている内容をすべて読み取る」" +
+                    "「利用者の代わりに操作する」ことができる最も強力なもので、" +
+                    "不正アプリが真っ先に狙う設定です。" +
+                    "入力中のパスワードの盗み見や、勝手な送金操作も技術的に可能になります。")
+
+                section("権限監査の使い方手順",
+                    "手順1. 診断タブ →「権限監査」を押す（自動で監査が実行されます）\n" +
+                    "手順2. 上部の判定と、有効になっているアプリの一覧を確認\n" +
+                    "手順3. 各カードの「できること」「判定理由」を読む\n" +
+                    "手順4. 心当たりがないものは「設定で無効化」からOFFにする\n" +
+                    "手順5. 必要なら「この機能を使えるアプリも見る」で未使用分も確認")
+
+                section("権限監査の見方",
+                    "リスク判定の基準:\n" +
+                    "・危険 … 画面読み取り＋操作代行が可能で、かつストア外から導入された\n" +
+                    "・高 … 画面読み取りと操作代行の両方が可能\n" +
+                    "・中 … 読み取りまたは操作のどちらかが可能\n" +
+                    "・低 … 標準アプリ、既知の支援アプリ、または未使用\n\n" +
+                    "加点要素: 画面の読み取り、操作の代行、キー入力の監視、" +
+                    "対象アプリの限定なし（銀行アプリを含む全画面で動作）、ストア外からの導入。\n" +
+                    "減点要素: 端末標準のアプリ、一般的な画面読み上げ・パスワード管理アプリ。\n\n" +
+                    "【原則】支援機能とパスワード管理以外で、この権限を求めるアプリは基本的に不要です。" +
+                    "「動作に必要」と説明されても安易に許可せず、" +
+                    "使い終わったらOFFに戻す運用が最も安全です。")
+
+
                 section("その他｜これは何？",
                     "分類しきれない機能をまとめています。" +
                     "『開く』を押すと専用画面が開きます。")
@@ -2820,6 +2898,476 @@ class MainActivity : Activity() {
         return ScrollView(this).apply { addView(list) }
     }
 
+    // =========================================================
+    // 診断 > APK掃除
+    // =========================================================
+    private val REQ_APK_TREE = 3003
+    private var apkBusy = false
+    private var apkResult: ApkCleaner.ScanResult? = null
+    private var apkTreeUri: Uri? = null
+    private var apkMessage: String? = null
+
+    private fun buildApkCleanView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        list.addView(card().apply {
+            addView(sectionTitle("APKファイルの掃除"))
+            addView(TextView(this@MainActivity).apply {
+                text = "端末に残ったAPK（アプリのインストール用ファイル）を探して一括削除します。\n\n" +
+                    "APKが端末に残っていると、誤って実行して不正アプリを入れてしまう危険があります。" +
+                    "また古いAPKは既知の弱点を含んだままのことが多く、置いておく利点はほぼありません。\n\n" +
+                    "手順1. 「フォルダを選んでAPKを探す」を押す\n" +
+                    "手順2. ダウンロードフォルダなどを選ぶ（内部ストレージ全体でも可）\n" +
+                    "手順3. 見つかった一覧を確認\n" +
+                    "手順4. 「すべて削除」を押す"
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "※Androidの仕様上、削除できるのは利用者が選んだフォルダの中だけです。" +
+                    "端末全体を対象にしたい場合は、フォルダ選択画面で内部ストレージの最上位を選んでください。"
+                textSize = 12f
+                setTextColor(yellowColor)
+                setPadding(0, dp(8), 0, 0)
+            })
+        })
+
+        list.addView(Button(this).apply {
+            text = if (apkBusy) "処理中…" else "フォルダを選んでAPKを探す"
+            textSize = 14f
+            isAllCaps = false
+            setTextColor(Color.BLACK)
+            setBackgroundColor(accentColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)
+            ).apply { topMargin = dp(10) }
+            setOnClickListener {
+                if (!apkBusy) {
+                    try {
+                        startActivityForResult(
+                            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                            }, REQ_APK_TREE)
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity,
+                            "フォルダ選択画面を開けませんでした", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        })
+
+        val msg = apkMessage
+        if (msg != null) {
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = msg
+                    textSize = 14f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(greenColor)
+                })
+            })
+        }
+
+        if (apkBusy) {
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = "検索または削除を実行しています…"
+                    textSize = 14f
+                    setTextColor(textColor)
+                })
+            })
+        }
+
+        val r = apkResult
+        if (r != null && !apkBusy) {
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = if (r.files.isEmpty()) "✓ APKファイルは見つかりませんでした"
+                    else "APKファイル ${r.files.size} 件（合計 " +
+                        ApkCleaner.formatBytes(ApkCleaner.totalSize(r.files)) + "）"
+                    textSize = 16f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(if (r.files.isEmpty()) greenColor else yellowColor)
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = "走査したファイル ${r.scannedFiles} 件" +
+                        (if (r.truncated) "\n※件数が多いため途中で打ち切りました" else "")
+                    textSize = 12f
+                    setTextColor(subColor)
+                    setPadding(0, dp(4), 0, 0)
+                })
+            })
+
+            if (r.files.isNotEmpty()) {
+                list.addView(Button(this).apply {
+                    text = "すべて削除（${r.files.size} 件）"
+                    textSize = 15f
+                    isAllCaps = false
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(Color.BLACK)
+                    setBackgroundColor(redColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(50)
+                    ).apply { topMargin = dp(10) }
+                    setOnClickListener { confirmDeleteApks(r) }
+                })
+
+                r.files.take(100).forEach { f ->
+                    list.addView(card().apply {
+                        addView(TextView(this@MainActivity).apply {
+                            text = f.name
+                            textSize = 14f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(textColor)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = "${f.path}\n" +
+                                ApkCleaner.formatBytes(f.sizeBytes) +
+                                (if (f.lastModified > 0)
+                                    "　" + SimpleDateFormat("yyyy/M/d", Locale.JAPAN)
+                                        .format(Date(f.lastModified)) else "")
+                            textSize = 11f
+                            setTextColor(subColor)
+                            setPadding(0, dp(2), 0, 0)
+                        })
+                    })
+                }
+            }
+        }
+
+        // ---- 提供元不明アプリの許可 ----
+        list.addView(card().apply {
+            addView(sectionTitle("提供元不明アプリのインストール許可"))
+            addView(TextView(this@MainActivity).apply {
+                text = "この許可が付いているアプリは、ストアを経由せずに他のアプリを導入できます。" +
+                    "不正アプリの主要な侵入口なので、必要のないものは無効にしてください。"
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, dp(4))
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "※Androidの仕様上、この設定をアプリから直接変更することはできません。" +
+                    "下のボタンから設定画面を開いて切り替えてください。"
+                textSize = 12f
+                setTextColor(yellowColor)
+            })
+            addView(Button(this@MainActivity).apply {
+                text = "インストール許可の設定を開く"
+                textSize = 14f
+                isAllCaps = false
+                setTextColor(Color.BLACK)
+                setBackgroundColor(accentColor)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
+                ).apply { topMargin = dp(8) }
+                setOnClickListener {
+                    openSafely(Intent(
+                        if (Build.VERSION.SDK_INT >= 26)
+                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES
+                        else Settings.ACTION_SECURITY_SETTINGS))
+                }
+            })
+        })
+
+        val installers = ApkCleaner.installers(applicationContext)
+        val grantedOnes = installers.filter { it.granted }
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = if (grantedOnes.isEmpty())
+                    "✓ 許可されているアプリはありません"
+                else "許可されているアプリ: ${grantedOnes.size} 件"
+                textSize = 15f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(if (grantedOnes.isEmpty()) greenColor else redColor)
+            })
+        })
+
+        grantedOnes.forEach { ins ->
+            val c = when (ins.risk) {
+                2 -> redColor
+                1 -> yellowColor
+                else -> subColor
+            }
+            list.addView(card().apply {
+                addView(TextView(this@MainActivity).apply {
+                    text = ins.label
+                    textSize = 15f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(c)
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = ins.packageName
+                    textSize = 11f
+                    setTextColor(subColor)
+                    setPadding(0, dp(2), 0, dp(4))
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = ins.reason
+                    textSize = 12f
+                    setTextColor(textColor)
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = "このアプリの設定を開く"
+                    textSize = 13f
+                    isAllCaps = false
+                    setTextColor(Color.BLACK)
+                    setBackgroundColor(c)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(42)
+                    ).apply { topMargin = dp(8) }
+                    setOnClickListener {
+                        try {
+                            startActivity(Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${ins.packageName}")))
+                        } catch (e: Exception) {
+                            Toast.makeText(this@MainActivity,
+                                "設定画面を開けませんでした", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                })
+            })
+        }
+
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    private fun confirmDeleteApks(r: ApkCleaner.ScanResult) {
+        val uri = apkTreeUri ?: return
+        AlertDialog.Builder(this)
+            .setTitle("APKを削除します")
+            .setMessage("${r.files.size} 件（合計 " +
+                ApkCleaner.formatBytes(ApkCleaner.totalSize(r.files)) +
+                "）を削除します。\n\nこの操作は取り消せません。よろしいですか？")
+            .setPositiveButton("削除する") { _, _ ->
+                apkBusy = true
+                apkMessage = null
+                renderContent()
+                Thread {
+                    val (ok, ng) = ApkCleaner.deleteAll(applicationContext, uri, r.files)
+                    val rescan = try {
+                        ApkCleaner.scan(applicationContext, uri)
+                    } catch (e: Exception) { null }
+                    runOnUiThread {
+                        apkBusy = false
+                        apkResult = rescan
+                        apkMessage = if (ng == 0)
+                            "$ok 件のAPKを削除しました。"
+                        else "$ok 件を削除しました。$ng 件は削除できませんでした" +
+                            "（読み取り専用の場所や、権限のないフォルダの可能性があります）。"
+                        renderContent()
+                    }
+                }.start()
+            }
+            .setNegativeButton("やめる", null)
+            .show()
+    }
+
+    // =========================================================
+    // 診断 > 権限監査（ユーザー補助）
+    // =========================================================
+    private var a11yShowAvailable = false
+
+    private fun buildA11yAuditView(): View {
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), 0, dp(12), dp(24))
+        }
+
+        val rep = AccessibilityAudit.run(applicationContext)
+
+        list.addView(card().apply {
+            addView(sectionTitle("ユーザー補助の権限監査"))
+            addView(TextView(this@MainActivity).apply {
+                text = "ユーザー補助（アクセシビリティ）は、画面の内容をすべて読み取り、" +
+                    "利用者の代わりに操作できる最も強力な権限です。" +
+                    "不正アプリが真っ先に狙う設定でもあります。"
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(6), 0, 0)
+            })
+        })
+
+        val gc = when (rep.globalRisk) {
+            AccessibilityAudit.RISK_CRITICAL -> redColor
+            AccessibilityAudit.RISK_HIGH -> redColor
+            AccessibilityAudit.RISK_MID -> yellowColor
+            else -> greenColor
+        }
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = if (rep.enabledEntries.isEmpty())
+                    "✓ 有効なアプリなし" else "有効: ${rep.enabledEntries.size} 件"
+                textSize = 18f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(gc)
+                gravity = Gravity.CENTER
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = rep.summary
+                textSize = 13f
+                setTextColor(textColor)
+                setPadding(0, dp(8), 0, 0)
+            })
+        })
+
+        list.addView(Button(this).apply {
+            text = "ユーザー補助の設定を開く"
+            textSize = 14f
+            isAllCaps = false
+            setTextColor(Color.BLACK)
+            setBackgroundColor(accentColor)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
+            ).apply { topMargin = dp(10) }
+            setOnClickListener {
+                openSafely(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        })
+
+        // ---- 有効なもの ----
+        rep.enabledEntries.forEach { e -> list.addView(a11yCard(e)) }
+
+        // ---- 未使用だが導入済みのもの ----
+        if (rep.availableEntries.isNotEmpty()) {
+            list.addView(Button(this).apply {
+                text = if (a11yShowAvailable)
+                    "この機能を使えるアプリを隠す（${rep.availableEntries.size} 件）"
+                else "この機能を使えるアプリも見る（${rep.availableEntries.size} 件）"
+                textSize = 13f
+                isAllCaps = false
+                setTextColor(textColor)
+                setBackgroundColor(cardColor)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
+                ).apply { topMargin = dp(12) }
+                setOnClickListener {
+                    a11yShowAvailable = !a11yShowAvailable
+                    renderContent()
+                }
+            })
+            if (a11yShowAvailable) {
+                list.addView(card().apply {
+                    addView(TextView(this@MainActivity).apply {
+                        text = "以下は現在は有効になっていませんが、" +
+                            "ユーザー補助を要求できるアプリです。" +
+                            "身に覚えのないアプリが並んでいる場合は、そのアプリ自体を確認してください。"
+                        textSize = 12f
+                        setTextColor(subColor)
+                    })
+                })
+                rep.availableEntries.forEach { e -> list.addView(a11yCard(e)) }
+            }
+        }
+
+        list.addView(card().apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "【安全のための原則】\n" +
+                    "・支援機能（画面読み上げ等）とパスワード管理以外で、" +
+                    "この権限を求めるアプリは基本的に不要です\n" +
+                    "・「動作に必要」と説明されても、安易に許可しないでください\n" +
+                    "・使い終わったらOFFに戻す運用が最も安全です"
+                textSize = 12f
+                setTextColor(subColor)
+            })
+        })
+
+        return ScrollView(this).apply { addView(list) }
+    }
+
+    private fun a11yCard(e: AccessibilityAudit.Entry): View {
+        val c = when (e.risk) {
+            AccessibilityAudit.RISK_CRITICAL -> redColor
+            AccessibilityAudit.RISK_HIGH -> redColor
+            AccessibilityAudit.RISK_MID -> yellowColor
+            else -> if (e.enabled) greenColor else subColor
+        }
+        return card().apply {
+            if (e.risk >= AccessibilityAudit.RISK_HIGH && e.enabled) {
+                setBackgroundColor(Color.parseColor("#3A1E1E"))
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = "[リスク ${AccessibilityAudit.riskLabel(e.risk)}]" +
+                    (if (e.enabled) " 有効" else " 未使用")
+                textSize = 11f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(c)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = e.label
+                textSize = 16f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(textColor)
+                setPadding(0, dp(2), 0, dp(2))
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "${e.packageName}\n入手元: ${e.installerName}"
+                textSize = 11f
+                setTextColor(subColor)
+                setPadding(0, 0, 0, dp(6))
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "できること:\n" + e.capabilities.joinToString("\n") { "・$it" }
+                textSize = 12f
+                setTextColor(textColor)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "\n判定理由:\n" + e.reasons.joinToString("\n") { "・$it" }
+                textSize = 12f
+                setTextColor(subColor)
+            })
+            if (e.description.isNotBlank()) {
+                addView(TextView(this@MainActivity).apply {
+                    text = "\nアプリの説明:\n${e.description}"
+                    textSize = 11f
+                    setTextColor(subColor)
+                })
+            }
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(8) }
+                addView(Button(this@MainActivity).apply {
+                    text = "設定で無効化"
+                    textSize = 11f
+                    isAllCaps = false
+                    setPadding(0, 0, 0, 0)
+                    setTextColor(Color.BLACK)
+                    setBackgroundColor(c)
+                    layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
+                        .apply { setMargins(dp(2), 0, dp(2), 0) }
+                    setOnClickListener {
+                        openSafely(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    }
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = "アプリ情報"
+                    textSize = 11f
+                    isAllCaps = false
+                    setPadding(0, 0, 0, 0)
+                    setTextColor(textColor)
+                    setBackgroundColor(bgColor)
+                    layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
+                        .apply { setMargins(dp(2), 0, dp(2), 0) }
+                    setOnClickListener {
+                        try {
+                            startActivity(Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${e.packageName}")))
+                        } catch (ex: Exception) { }
+                    }
+                })
+            })
+        }
+    }
+
     // ===== VPN制御 =====
     private fun startVpn() {
         val intent = VpnService.prepare(this)
@@ -2862,6 +3410,32 @@ class MainActivity : Activity() {
             val target = existing
                 ?: FolderDigest.addTarget(applicationContext, name, uri.toString())
             runDigest(uri, target.id, target.name)
+            return
+        }
+        if (requestCode == REQ_APK_TREE && resultCode == Activity.RESULT_OK) {
+            val uri = data?.data ?: return
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            } catch (e: Exception) { }
+            apkTreeUri = uri
+            apkBusy = true
+            apkResult = null
+            apkMessage = null
+            renderContent()
+            Thread {
+                val res = try {
+                    ApkCleaner.scan(applicationContext, uri)
+                } catch (e: Exception) {
+                    ApkCleaner.ScanResult(emptyList(), 0, false)
+                }
+                runOnUiThread {
+                    apkBusy = false
+                    apkResult = res
+                    renderContent()
+                }
+            }.start()
             return
         }
         if (requestCode == VPN_REQUEST && resultCode == Activity.RESULT_OK) {

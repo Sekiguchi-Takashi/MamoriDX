@@ -1,6 +1,19 @@
 # MamoriDX（守りのDX 2.0）HANDOFF
 
-## 現在バージョン: v8.0（タブを5大分類に再編＋バッテリー劣化度＋フォルダ集計）
+## 現在バージョン: v8.1（APK掃除＋ユーザー補助の権限監査）
+
+## v8.1 新機能
+- 診断タブのサブタブが6つに: アプリ棚卸し(0)/端末診断(1)/緊急対応(2)/APK掃除(3)/権限監査(4)/その他(5)
+- サブタブバーは1行最大3つで自動折り返し（`buildSubTabs`が rows を計算、余りはダミーViewで幅を揃える）
+- `ApkCleaner`(object): SAFで選んだツリー配下から .apk/.apks/.xapk/.apkm とMIME package-archive を再帰検索（最大6000ファイル）。削除は`DocumentsContract.deleteDocument`。**ACTION_OPEN_DOCUMENT_TREE時にWRITE権限フラグも付与しtakePersistableUriPermissionでREAD|WRITEを取得すること**（これが無いと削除が失敗する）。削除後に自動再スキャン
+- `ApkCleaner.installers()`: REQUEST_INSTALL_PACKAGES を宣言かつ付与済みのアプリを列挙しリスク3段階。**この設定はアプリから変更不可**のため ACTION_MANAGE_UNKNOWN_APP_SOURCES / アプリ詳細画面へ誘導する方式
+- `AccessibilityAudit`(object): `AccessibilityManager.getInstalledAccessibilityServiceList()` ＋ `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` ＋ ACCESSIBILITY_ENABLED で有効判定。capabilitiesから CAN_RETRIEVE_WINDOW_CONTENT / CAN_PERFORM_GESTURES / CAN_REQUEST_FILTER_KEY_EVENTS を読み、packageNames空なら全アプリ対象と判定。加点(読み取り+2/操作+2/キー監視+1/全アプリ+1/ストア外+3)、減点(システム-2/既知支援アプリ-2)でRISK_LOW〜CRITICALを算出。有効分と「使えるが未使用」分を分離表示
+- REQ_APK_TREE=3003（既存: VPN_REQUEST=1001 / REQ_STATUS_PERM=3001 / REQ_DIGEST_TREE=3002）
+
+## ★Androidの制約（実装上の前提・変更不可）
+- 「提供元不明アプリの許可」はアプリから取り消せない → 設定画面誘導のみ
+- 他アプリのユーザー補助はアプリから無効化できない → 設定画面誘導のみ
+- ファイル削除はSAFで利用者が選んだ範囲のみ（MANAGE_EXTERNAL_STORAGEはPlay審査が厳しいため不採用）
 
 ## タブ構成（v8.0）★重要：大分類5＋サブタブ方式
 ```
