@@ -108,12 +108,22 @@ INTERNET / ACCESS_NETWORK_STATE（Phase6,8）、ACCESS_WIFI_STATE / ACCESS_FINE_
 - 転送はcreateChooser + EXTRA_EXCLUDE_COMPONENTSで自分自身を除外（無限ループ防止）
 - 検査は全て端末内完結・外部送信なし
 
-## デプロイ規約（v1.1から・Appathy標準）
-- 各ZIPのプロジェクト直下に `deploy.sh` を同梱する
-- ユーザーの実行手順は毎回固定の4行のみ（cd ~ / cp / unzip -o / bash deploy.sh "メッセージ"）
-- **対話入力（read等）を含むコマンドブロックは禁止**（ブロック一括貼り付けとreadは両立しないため）
+## デプロイ規約（恒久ルール・全プロジェクト共通）
+- 各ZIPのプロジェクト直下に `deploy.sh` を同梱する。REPO変数は各リポジトリ名に合わせる
+- ユーザーの実行手順は毎回固定4行のみ（cd ~ / cp / unzip -o / bash deploy.sh "メッセージ"）
+- **対話入力（read等）を含むコマンドブロックは禁止**。echoも使わない（printfを使う）
 - トークンは `git config --global github.token` に一度だけ登録し、deploy.shが読み出す
-- deploy.shは冪等：リポジトリ作成済み(422)・init済み・remote設定済み・変更なし、いずれも安全に続行
+- deploy.shの必須要素:
+  1. `git init -b main`（.git無い場合のみ）→ remote張り直し → add/commit
+  2. **`git pull --rebase origin main` が必須**。カタログ管理システムがAPI経由で
+     `.github/workflows/release.yml` と `ci/appathy.keystore` を直接コミットするため、
+     これが無いと push が rejected になる
+  3. push 後、GitHub APIで最新リリースのタグを取得し、パッチ番号を+1して
+     `refs/tags/<次のタグ>` を作成（awkでv1.2.3 / v1.2 / 末尾数字 の3形式に対応、
+     取得できなければ v1.0.0）
+  4. 最後に `printf 'pushed and tagged %s\n'` で結果表示
+- **`.github/workflows/release.yml` と `ci/` ディレクトリは配布ビルドに必要なので削除しない**
+- タグを打つとActionsがビルドしてReleaseを作成し、自作アプリストアに更新として現れる
 
 ## コンセプト
 シャドーIT対策の発想転換：「見つけて即削除」→「可視化 → 許可 → ガードレール設置」。
