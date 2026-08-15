@@ -123,6 +123,9 @@ INTERNET / ACCESS_NETWORK_STATE（Phase6,8）、ACCESS_WIFI_STATE / ACCESS_FINE_
      取得できなければ v1.0.0）
   4. 最後に `printf 'pushed and tagged %s\n'` で結果表示
 - **`.github/workflows/release.yml` と `ci/` ディレクトリは配布ビルドに必要なので削除しない**
+- **build.yml に `actions/upload-artifact` を入れないこと**。Artifactsストレージ無料枠(0.5GB)が枯渇し
+  "Artifact storage quota has been hit" でビルドが落ちる。APKはReleaseから配布するのでArtifactsは不要。
+  build.yml はコンパイルが通るかの確認用と割り切る
 - タグを打つとActionsがビルドしてReleaseを作成し、自作アプリストアに更新として現れる
 
 ## コンセプト
@@ -151,7 +154,7 @@ INTERNET / ACCESS_NETWORK_STATE（Phase6,8）、ACCESS_WIFI_STATE / ACCESS_FINE_
 ## ファイル構成
 ```
 MamoriDX/
-├── .github/workflows/build.yml   … Gradle 8.9 DL → assembleDebug → artifact
+├── .github/workflows/build.yml   … Gradle 8.9 DL → assembleDebug（コンパイル確認のみ）
 ├── build.gradle.kts              … AGP/Kotlin バージョンピン
 ├── settings.gradle.kts
 ├── debug.keystore
