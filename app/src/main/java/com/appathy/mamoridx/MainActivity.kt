@@ -264,7 +264,8 @@ class MainActivity : Activity() {
         addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(TextView(this@MainActivity).apply {
-                text = (if (GameState.time == GameData.TIME_DAY) "☀ 昼" else "☾ 夜") +
+                text = (if (GameState.time == GameData.TIME_DAY) "☀ 昼"
+                        else if (GameState.dusk) "☾ 宵の口" else "☾ 夜") +
                     (if (GameState.raining) "　☂ 雨" else "")
                 textSize = 16f
                 setTypeface(null, Typeface.BOLD)
@@ -294,6 +295,8 @@ class MainActivity : Activity() {
         // 天候は見た目のみ。謎解きの条件には影響しない
         GameState.raining =
             Random(GameState.seed + GameState.turns * 7L).nextInt(100) < 30
+        // 夜になった直後は宵の口（次の行動で明けた夜になる）
+        GameState.dusk = (GameState.time == GameData.TIME_NIGHT && !GameState.raining)
         GameState.turns++
         GameState.save(applicationContext)
         if (checkTimeOver()) return
@@ -418,6 +421,7 @@ class MainActivity : Activity() {
     private fun explore(a: GameData.Area) {
         GameState.turns++
         GameState.visitedAreas.add(a.id)
+        GameState.dusk = false
         GameState.refreshAchievements(applicationContext)
 
         // このエリアに未発見の欠片があるか
@@ -472,7 +476,7 @@ class MainActivity : Activity() {
             GameState.save(applicationContext)
             AlertDialog.Builder(this)
                 .setTitle("${item.name} を見つけた")
-                .setMessage(item.note)
+                .setView(picturePanel(item.drawable, item.name, item.note))
                 .setPositiveButton("OK") { _, _ ->
                     if (!checkTimeOver()) show(SC_AREA)
                 }
@@ -481,6 +485,24 @@ class MainActivity : Activity() {
         }
 
         GameState.save(applicationContext)
+
+        // 出来事（演出のみ。謎解きの条件には影響しない）
+        val possible = GameData.happenings.filter { h ->
+            (h.timeReq < 0 || h.timeReq == GameState.time) &&
+            (h.rainReq == null || h.rainReq == GameState.raining)
+        }
+        if (possible.isNotEmpty() && rnd.nextInt(100) < 30) {
+            val h = possible[rnd.nextInt(possible.size)]
+            AlertDialog.Builder(this)
+                .setTitle(h.title)
+                .setView(picturePanel(h.drawable, h.title, h.text))
+                .setPositiveButton("OK") { _, _ ->
+                    if (!checkTimeOver()) show(SC_AREA)
+                }
+                .show()
+            return
+        }
+
         val misses = listOf(
             "めぼしいものは見当たらない。",
             "砂と石ばかりだ。だが、この場所の様子は覚えておこう。",
@@ -673,17 +695,41 @@ class MainActivity : Activity() {
                     cands.joinToString("\n") { "・${it.name}" }))
         })
 
-        if (GameState.foundItems.isNotEmpty()) {
+        col.addView(card().apply {
+            addView(head("持ち物 ${GameState.foundItems.size}/${GameData.items.size}"))
+        })
+        GameData.items.forEach { item ->
+            val got = GameState.foundItems.contains(item.id)
             col.addView(card().apply {
-                addView(head("持ち物"))
-                GameData.items.filter { GameState.foundItems.contains(it.id) }.forEach {
-                    addView(TextView(this@MainActivity).apply {
-                        text = "・${it.name}"
-                        textSize = 14f
-                        setTextColor(inkColor)
-                        setPadding(0, dp(3), 0, 0)
+                addView(LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    addView(ImageView(this@MainActivity).apply {
+                        layoutParams = LinearLayout.LayoutParams(dp(60), dp(60))
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        alpha = if (got) 1f else 0.18f
+                        setImageDrawable(Art.get(this@MainActivity, item.drawable,
+                            item.name, 200, 200))
                     })
-                }
+                    addView(LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            leftMargin = dp(10)
+                        }
+                        addView(TextView(this@MainActivity).apply {
+                            text = if (got) item.name else "？？？"
+                            textSize = 15f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(if (got) inkColor else subColor)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = if (got) item.note else "まだ見つけていない"
+                            textSize = 12f
+                            setTextColor(subColor)
+                            setPadding(0, dp(4), 0, 0)
+                        })
+                    })
+                })
             })
         }
 
@@ -751,7 +797,15 @@ class MainActivity : Activity() {
             GameState.clearCount++
             GameState.save(applicationContext)
             GameState.refreshAchievements(applicationContext)
-            show(SC_ENDING)
+            AlertDialog.Builder(this)
+                .setTitle("見つけた！")
+                .setView(picturePanel("item_treasure", "宝箱",
+                    "${a.name}の地面が、鈍い音を返した。\n" +
+                    "掘り進めると、古い木箱の角が現れる。\n\n" +
+                    "――航海士が遺したものが、いま陽の下に出た。"))
+                .setPositiveButton("箱を開ける") { _, _ -> show(SC_ENDING) }
+                .setCancelable(false)
+                .show()
         } else {
             GameState.turns++
             GameState.save(applicationContext)
@@ -775,10 +829,11 @@ class MainActivity : Activity() {
             ?: GameData.endings.last()
 
         col.addView(imageBannerChain(
-            if (e.id == "TRUE" || e.id == "LEGEND")
-                listOf(e.drawable, "compass_complete")
-            else listOf(e.drawable),
-            e.title))
+            when (e.id) {
+                "TRUE", "LEGEND" -> listOf(e.drawable, "compass_complete")
+                "TIMEOVER" -> listOf(e.drawable, "event_storm")
+                else -> listOf(e.drawable)
+            }, e.title))
 
         col.addView(TextView(this).apply {
             text = e.title
@@ -823,6 +878,25 @@ class MainActivity : Activity() {
         col.addView(flatButton("タイトルへ") { show(SC_TITLE) })
         return scroll(col)
     }
+
+    /** ダイアログ用の「絵＋本文」パネル */
+    private fun picturePanel(drawable: String, label: String, body: String): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), dp(8))
+            addView(ImageView(this@MainActivity).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(170))
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setImageDrawable(Art.get(this@MainActivity, drawable, label, 420, 420))
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = body
+                textSize = 14f
+                setTextColor(inkColor)
+                setPadding(0, dp(12), 0, 0)
+            })
+        }
 
     // =========================================================
     // UI部品
@@ -897,6 +971,10 @@ class MainActivity : Activity() {
         if (GameState.raining) {
             out.add("${base}_rain")
             if (night) out.add("${base}_night")
+        } else if (GameState.dusk) {
+            // 夜になった直後は宵の口の絵を見せる
+            out.add("${base}_dusk")
+            out.add("${base}_night")
         } else if (night) {
             out.add("${base}_night")
         }

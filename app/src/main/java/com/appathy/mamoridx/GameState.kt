@@ -19,6 +19,7 @@ object GameState {
     var visitedAreas: MutableSet<String> = mutableSetOf()
     var time: Int = GameData.TIME_DAY
     var raining: Boolean = false
+    var dusk: Boolean = false          // 夜になった直後の宵の口（見た目のみ）
     var turns: Int = 0                                            // 探索回数
     var maxTurns: Int = 40                                        // これを超えるとTIME OVER
     var endingId: String? = null
@@ -44,6 +45,7 @@ object GameState {
         visitedAreas = mutableSetOf()
         time = GameData.TIME_DAY
         raining = false
+        dusk = false
         turns = 0
         maxTurns = 40
         endingId = null
@@ -73,6 +75,7 @@ object GameState {
         o.put("visited", JSONArray(visitedAreas.toList()))
         o.put("time", time)
         o.put("rain", raining)
+        o.put("dusk", dusk)
         o.put("turns", turns)
         o.put("maxTurns", maxTurns)
         o.put("ending", endingId ?: "")
@@ -110,6 +113,7 @@ object GameState {
             visitedAreas = toStrList(o.optJSONArray("visited")).toMutableSet()
             time = o.optInt("time", GameData.TIME_DAY)
             raining = o.optBoolean("rain", false)
+            dusk = o.optBoolean("dusk", false)
             turns = o.optInt("turns", 0)
             maxTurns = o.optInt("maxTurns", 40)
             endingId = o.optString("ending").ifBlank { null }

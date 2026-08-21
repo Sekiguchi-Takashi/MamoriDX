@@ -105,7 +105,54 @@ object GameData {
         Item("telescope", "真鍮の望遠鏡", "item_telescope",
             "遠くを見るためのもの。高い場所でこそ意味を持つ。"),
         Item("journal", "航海士の日誌", "item_journal",
-            "表紙に羅針盤の紋章。持ち主は最後まで島を離れなかったらしい。")
+            "表紙に羅針盤の紋章。持ち主は最後まで島を離れなかったらしい。"),
+        Item("map", "宝の地図", "item_map",
+            "島の輪郭と、赤い×印。ただし印の位置は、いまの地形と合っていない。"),
+        Item("stele", "小さな石碑", "item_stele",
+            "渦巻きの文様が刻まれている。神殿の壁と同じ様式だ。")
+    )
+
+    // =========================================================
+    // 出来事（探索中に起きる演出。謎解きの条件には影響しない）
+    // =========================================================
+    /**
+     * @param timeReq -1=いつでも / TIME_DAY / TIME_NIGHT
+     * @param rainReq null=不問 / true=雨のとき / false=雨でないとき
+     */
+    data class Happening(
+        val id: String,
+        val title: String,
+        val drawable: String,
+        val text: String,
+        val timeReq: Int = -1,
+        val rainReq: Boolean? = null
+    )
+
+    val happenings: List<Happening> = listOf(
+        Happening("storm", "嵐が来た", "event_storm",
+            "海が牙を剥いた。稲光が水平線を白く裂く。\n" +
+            "こんな夜に船を出した者がいたのだろうか。",
+            timeReq = -1, rainReq = true),
+        Happening("tide", "潮が引いた", "event_tide",
+            "波が退き、砂の下から石畳が現れた。\n" +
+            "渦巻きの文様。誰かがここを歩いていた証だ。",
+            timeReq = TIME_DAY, rainReq = false),
+        Happening("constellation", "星がひとつの形を結ぶ", "event_constellation",
+            "夜空の星が、ゆっくりと羅針盤の形に見えてきた。\n" +
+            "見上げていると、進むべき方角がわかる気がする。",
+            timeReq = TIME_NIGHT, rainReq = false),
+        Happening("sunrise", "夜が明けた", "event_sunrise",
+            "水平線から光が伸びてくる。\n" +
+            "島の輪郭が、少しずつ戻ってきた。",
+            timeReq = TIME_DAY, rainReq = false),
+        Happening("rockfall", "岩が崩れた", "event_rockfall",
+            "頭上で鈍い音がして、岩が転がり落ちてきた。\n" +
+            "――間一髪。古い道は、もう古いままではいられないらしい。",
+            timeReq = -1, rainReq = null),
+        Happening("secretdoor", "隠された扉", "event_secretdoor",
+            "蔦をかき分けると、岩肌に石の扉があった。\n" +
+            "隙間から、暖かい光が漏れている。",
+            timeReq = -1, rainReq = null)
     )
 
     /** 手がかりの種類 */
