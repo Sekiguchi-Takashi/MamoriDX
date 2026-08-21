@@ -1,6 +1,26 @@
 # 南国ゲーム『蒼海の秘宝 ～七つの羅針盤～』HANDOFF
 
-## 現在バージョン: v9.0
+## 現在バージョン: v9.1（エリア画像13枚を配置）
+
+## 画像の配置状況（v9.1）
+配置済み（`app/src/main/res/drawable/*.webp`、長辺1024・quality82・計約2.5MB）:
+- 海岸: area_beach / area_beach_night
+- 森: area_forest（夕暮れ絵）/ area_forest_night / area_forest_rain
+- 洞窟: area_cave / area_cave_night / area_cave_rain / area_cave_dusk
+- 灯台: area_lighthouse / area_lighthouse_night / area_lighthouse_rain / area_lighthouse_dusk
+未配置（色板で自動代替中）: volcano / temple / waterfall / pier / ruins
+
+**PNGのままだと13枚で20MBに膨らむ。WebP(quality82)必須。**
+
+## 表示仕様
+- `imageBannerChain()` が候補名を順に試す: 雨→`_rain`、夜→`_night`、最後に通常名、それも無ければ色板
+- ステッカー絵は正方形なので **ScaleType.FIT_CENTER・4:3枠**で表示（CENTER_CROPだと上下が切れる）
+- `_dusk` は現状コードから参照していない予備（夕暮れ演出を入れる場合に使う）
+
+## 天候（v9.1で追加・見た目のみ）
+- `GameState.raining`。時間を送るたび30%で雨。**謎解きの条件には一切影響しない**
+- ステータスバーに「☂ 雨」、エリア説明に一文追加、背景が`_rain`に差し替わる
+
 リポジトリは `MamoriDX` のまま。**旧「守りのDX」を完全に置き換えた**（applicationIdも
 `com.appathy.mamoridx` のままなので、アプリストア上で上書き更新として現れる）。
 旧セキュリティ機能17ファイルは全削除済み（機能はSecHQAppへ移設済み）。

@@ -20,6 +20,18 @@ object Art {
 
     private val cache = HashMap<String, Drawable>()
 
+    /**
+     * 候補名を順に試し、最初に見つかった画像を返す。
+     * 例: area_cave_rain → 無ければ area_cave → 無ければ色板
+     */
+    fun getFirst(ctx: Context, names: List<String>, label: String,
+                 w: Int = 720, h: Int = 540): Drawable {
+        for (n in names) {
+            if (hasImage(ctx, n)) return get(ctx, n, label, w, h)
+        }
+        return get(ctx, names.lastOrNull() ?: "placeholder", label, w, h)
+    }
+
     /** drawable名から画像を取得。無ければプレースホルダを返す */
     fun get(ctx: Context, name: String, label: String, w: Int = 720, h: Int = 405): Drawable {
         cache[name]?.let { return it }

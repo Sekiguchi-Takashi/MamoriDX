@@ -259,7 +259,8 @@ class MainActivity : Activity() {
         addView(LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(TextView(this@MainActivity).apply {
-                text = if (GameState.time == GameData.TIME_DAY) "☀ 昼" else "☾ 夜"
+                text = (if (GameState.time == GameData.TIME_DAY) "☀ 昼" else "☾ 夜") +
+                    (if (GameState.raining) "　☂ 雨" else "")
                 textSize = 16f
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(Color.WHITE)
@@ -285,6 +286,9 @@ class MainActivity : Activity() {
     private fun advanceTime() {
         GameState.time =
             if (GameState.time == GameData.TIME_DAY) GameData.TIME_NIGHT else GameData.TIME_DAY
+        // 天候は見た目のみ。謎解きの条件には影響しない
+        GameState.raining =
+            Random(GameState.seed + GameState.turns * 7L).nextInt(100) < 30
         GameState.turns++
         GameState.save(applicationContext)
         if (checkTimeOver()) return
@@ -308,9 +312,7 @@ class MainActivity : Activity() {
         val a = GameData.area(currentAreaId)
         val col = column()
 
-        col.addView(imageBanner(
-            if (GameState.time == GameData.TIME_NIGHT) "${a.drawable}_night" else a.drawable,
-            a.name, 16 to 9))
+        col.addView(imageBannerChain(areaImageNames(a), a.name))
 
         col.addView(TextView(this).apply {
             text = a.name
@@ -320,7 +322,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(10), 0, dp(4))
         })
         col.addView(TextView(this).apply {
-            text = a.flavor
+            text = a.flavor + if (GameState.raining) "\n雨が降っている。足元がぬかるんでいる。" else ""
             textSize = 14f
             setTextColor(inkColor)
             setPadding(0, 0, 0, dp(8))
@@ -648,15 +650,36 @@ class MainActivity : Activity() {
             setOnClickListener { onClick() }
         }
 
+    /** エリア画像の候補名（天候→時間→通常 の順にフォールバック） */
+    private fun areaImageNames(a: GameData.Area): List<String> {
+        val base = a.drawable
+        val night = GameState.time == GameData.TIME_NIGHT
+        val out = mutableListOf<String>()
+        if (GameState.raining) {
+            out.add("${base}_rain")
+            if (night) out.add("${base}_night")
+        } else if (night) {
+            out.add("${base}_night")
+        }
+        out.add(base)
+        return out
+    }
+
     /** 画像バナー。画像未配置なら色板が入る */
-    private fun imageBanner(name: String, label: String, ratio: Pair<Int, Int>): View {
+    private fun imageBanner(name: String, label: String, ratio: Pair<Int, Int>): View =
+        imageBannerChain(listOf(name), label, ratio)
+
+    private fun imageBannerChain(names: List<String>, label: String,
+                                 ratio: Pair<Int, Int> = 4 to 3): View {
         val w = resources.displayMetrics.widthPixels - dp(28)
         val h = (w * ratio.second / ratio.first)
         return ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, h)
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            Art.into(this, this@MainActivity, name, label, w.coerceAtLeast(360), h.coerceAtLeast(200))
+            // ステッカー絵は正方形なので、切らずに収める
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageDrawable(Art.getFirst(this@MainActivity, names, label,
+                w.coerceAtLeast(360), h.coerceAtLeast(240)))
         }
     }
 
