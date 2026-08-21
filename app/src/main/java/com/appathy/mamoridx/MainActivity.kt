@@ -823,6 +823,8 @@ class MainActivity : Activity() {
         } else if (night) {
             out.add("${base}_night")
         }
+        // 夜の絵が無いエリアは、昼の絵より夕暮れの絵のほうが自然
+        if (night) out.add("${base}_dusk")
         out.add(base)
         return out
     }
