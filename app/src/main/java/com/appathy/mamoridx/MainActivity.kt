@@ -194,6 +194,16 @@ class MainActivity : Activity() {
                 if (locked) alpha = 0.5f
                 addView(LinearLayout(this@MainActivity).apply {
                     orientation = LinearLayout.HORIZONTAL
+                    addView(ImageView(this@MainActivity).apply {
+                        layoutParams = LinearLayout.LayoutParams(dp(30), dp(30)).apply {
+                            rightMargin = dp(8)
+                        }
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        setImageDrawable(Art.get(this@MainActivity,
+                            if (locked) "ui_lock"
+                            else if (!visited) "ui_marker_icon" else "ui_unlock",
+                            "", 120, 120))
+                    })
                     addView(TextView(this@MainActivity).apply {
                         text = a.name
                         textSize = 18f
@@ -625,6 +635,7 @@ class MainActivity : Activity() {
     private fun buildJournal(): View {
         val col = column()
         col.addView(statusBar())
+        col.addView(imageBannerChain(listOf("ui_map_board"), "日誌", 16 to 9))
 
         val allFound = GameState.foundFragments.size >= 7
         col.addView(card().apply {
@@ -696,7 +707,20 @@ class MainActivity : Activity() {
         })
 
         col.addView(card().apply {
-            addView(head("持ち物 ${GameState.foundItems.size}/${GameData.items.size}"))
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(ImageView(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply {
+                        rightMargin = dp(8)
+                    }
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    setImageDrawable(Art.get(this@MainActivity,
+                        "ui_inventory_frame", "", 140, 140))
+                })
+                addView(head("持ち物 ${GameState.foundItems.size}/${GameData.items.size}").apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                })
+            })
         })
         GameData.items.forEach { item ->
             val got = GameState.foundItems.contains(item.id)
@@ -747,7 +771,8 @@ class MainActivity : Activity() {
             GameState.clues, GameState.fragmentAreaIds)
         AlertDialog.Builder(this)
             .setTitle("AIガイドの助言（${level}段階目）")
-            .setMessage(Puzzle.hint(g, GameState.collectedClues(), level))
+            .setView(picturePanel("ui_hint_icon", "ヒント",
+                Puzzle.hint(g, GameState.collectedClues(), level)))
             .setPositiveButton("ありがとう", null)
             .show()
     }
@@ -759,6 +784,7 @@ class MainActivity : Activity() {
         val col = column()
         col.addView(statusBar())
 
+        col.addView(imageBannerChain(listOf("ui_button_wood"), "宝の在り処を告げる", 16 to 7))
         col.addView(card().apply {
             addView(head("宝の在り処を告げる"))
             addView(body(
@@ -788,10 +814,13 @@ class MainActivity : Activity() {
 
     private fun answer(a: GameData.Area) {
         if (a.id == GameState.treasureAreaId) {
-            val all = GameState.foundFragments.size >= 7
+            val frags = GameState.foundFragments.size
+            val allItems = GameState.foundItems.size >= GameData.items.size
             GameState.endingId = when {
-                all && GameState.hintUsed == 0 -> "TRUE"
-                all -> "LEGEND"
+                frags >= 7 && allItems && GameState.hintUsed == 0 -> "SECRET"
+                frags >= 7 && GameState.hintUsed == 0 -> "TRUE"
+                frags >= 7 -> "LEGEND"
+                frags <= 2 -> "BETRAYAL"
                 else -> "TREASURE"
             }
             GameState.clearCount++
@@ -830,7 +859,7 @@ class MainActivity : Activity() {
 
         col.addView(imageBannerChain(
             when (e.id) {
-                "TRUE", "LEGEND" -> listOf(e.drawable, "compass_complete")
+                "TRUE", "LEGEND", "SECRET" -> listOf(e.drawable, "compass_complete")
                 "TIMEOVER" -> listOf(e.drawable, "event_storm")
                 else -> listOf(e.drawable)
             }, e.title))
@@ -861,7 +890,7 @@ class MainActivity : Activity() {
                 "この島の番号: ${GameState.seed}"))
         })
 
-        if (GameState.endingId == "TREASURE") {
+        if (GameState.endingId == "TREASURE" || GameState.endingId == "BETRAYAL") {
             col.addView(card().apply {
                 addView(head("もっと先へ"))
                 addView(body(

@@ -145,7 +145,7 @@ object GameState {
         val cleared = endingId != null && endingId != "TIMEOVER"
         unlock("speedrun", cleared && turns <= 20)
         unlock("solo", cleared && hintUsed == 0)
-        unlock("true_end", endingId == "TRUE")
+        unlock("true_end", endingId == "TRUE" || endingId == "SECRET")
         if (newly.isNotEmpty()) save(ctx)
         return newly
     }
