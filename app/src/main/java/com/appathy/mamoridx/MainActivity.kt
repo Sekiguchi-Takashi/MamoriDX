@@ -391,7 +391,23 @@ class MainActivity : Activity() {
             col.addView(card().apply {
                 addView(head("ここで見つけたもの"))
                 foundHere.forEach { (i, _) ->
-                    addView(body("◆ ${GameData.fragmentNames[i].first}"))
+                    val (fname, fdraw) = GameData.fragmentNames[i]
+                    addView(LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, dp(6), 0, 0)
+                        addView(ImageView(this@MainActivity).apply {
+                            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
+                            scaleType = ImageView.ScaleType.FIT_CENTER
+                            setImageDrawable(Art.get(this@MainActivity, fdraw, fname, 160, 160))
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = fname
+                            textSize = 14f
+                            setTextColor(inkColor)
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(dp(8), 0, 0, 0)
+                        })
+                    })
                 }
             })
         }
@@ -412,15 +428,34 @@ class MainActivity : Activity() {
         if (fragIdx != null) {
             GameState.foundFragments.add(fragIdx)
             GameState.save(applicationContext)
-            val name = GameData.fragmentNames[fragIdx].first
+            val (name, drawable) = GameData.fragmentNames[fragIdx]
             val clue = GameState.clues.getOrNull(fragIdx)
+            val allNow = GameState.foundFragments.size >= 7
+            val panel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(16), dp(20), dp(8))
+                addView(ImageView(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(170))
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    setImageDrawable(Art.get(this@MainActivity,
+                        if (allNow) "compass_complete" else drawable, name, 420, 420))
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = "欠片に刻まれた言葉が、頭の中に流れ込んでくる。\n\n" +
+                        "『${clue?.text() ?: "……"}』\n\n" +
+                        (if (allNow) "――七つ、揃った。羅針盤が熱を帯びている。"
+                         else "（日誌に書き留めた）")
+                    textSize = 14f
+                    setTextColor(inkColor)
+                    setPadding(0, dp(12), 0, 0)
+                })
+            }
             AlertDialog.Builder(this)
                 .setTitle("$name を見つけた！")
-                .setMessage(
-                    "欠片に刻まれた言葉が、頭の中に流れ込んでくる。\n\n" +
-                    "『${clue?.text() ?: "……"}』\n\n" +
-                    "（日誌に書き留めた）")
+                .setView(panel)
                 .setPositiveButton("OK") { _, _ ->
+                    GameState.refreshAchievements(applicationContext)
                     if (!checkTimeOver()) show(SC_AREA)
                 }
                 .setCancelable(false)
@@ -569,26 +604,64 @@ class MainActivity : Activity() {
         val col = column()
         col.addView(statusBar())
 
+        val allFound = GameState.foundFragments.size >= 7
         col.addView(card().apply {
             addView(head("羅針盤の欠片 ${GameState.foundFragments.size}/7"))
-            GameData.fragmentNames.forEachIndexed { i, (name, _) ->
-                val got = GameState.foundFragments.contains(i)
-                addView(TextView(this@MainActivity).apply {
-                    text = if (got) "◆ $name" else "◇ ？？？"
-                    textSize = 15f
-                    setTypeface(null, if (got) Typeface.BOLD else Typeface.NORMAL)
-                    setTextColor(if (got) sandColor else subColor)
-                    setPadding(0, dp(4), 0, 0)
+            if (allFound) {
+                addView(ImageView(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(180)
+                    ).apply { topMargin = dp(8) }
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    setImageDrawable(Art.get(this@MainActivity, "compass_complete",
+                        "羅針盤", 480, 480))
                 })
-                if (got) {
-                    addView(TextView(this@MainActivity).apply {
-                        text = "　『${GameState.clues.getOrNull(i)?.text() ?: ""}』"
-                        textSize = 13f
-                        setTextColor(inkColor)
-                    })
-                }
+                addView(TextView(this@MainActivity).apply {
+                    text = "七つの欠片が繋がった。あとは告げるだけだ。"
+                    textSize = 13f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(sandColor)
+                    gravity = Gravity.CENTER
+                    setPadding(0, dp(6), 0, 0)
+                })
             }
         })
+
+        GameData.fragmentNames.forEachIndexed { i, (name, drawable) ->
+            val got = GameState.foundFragments.contains(i)
+            col.addView(card().apply {
+                addView(LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    addView(ImageView(this@MainActivity).apply {
+                        layoutParams = LinearLayout.LayoutParams(dp(72), dp(72))
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        alpha = if (got) 1f else 0.18f
+                        setImageDrawable(Art.get(this@MainActivity, drawable, name, 220, 220))
+                    })
+                    addView(LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            leftMargin = dp(10)
+                        }
+                        addView(TextView(this@MainActivity).apply {
+                            text = if (got) name else "？？？"
+                            textSize = 15f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(if (got) sandColor else subColor)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = if (got)
+                                "『${GameState.clues.getOrNull(i)?.text() ?: ""}』"
+                            else "まだ見つけていない"
+                            textSize = 13f
+                            setTextColor(if (got) inkColor else subColor)
+                            setPadding(0, dp(4), 0, 0)
+                        })
+                    })
+                })
+            })
+        }
 
         val cands = Puzzle.candidates(GameState.collectedClues())
         col.addView(card().apply {
@@ -701,7 +774,11 @@ class MainActivity : Activity() {
         val e = GameData.endings.firstOrNull { it.id == GameState.endingId }
             ?: GameData.endings.last()
 
-        col.addView(imageBanner(e.drawable, e.title, 16 to 9))
+        col.addView(imageBannerChain(
+            if (e.id == "TRUE" || e.id == "LEGEND")
+                listOf(e.drawable, "compass_complete")
+            else listOf(e.drawable),
+            e.title))
 
         col.addView(TextView(this).apply {
             text = e.title
