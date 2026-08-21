@@ -44,6 +44,7 @@ class MainActivity : Activity() {
     private val SC_JOURNAL = 3
     private val SC_DEDUCE = 4
     private val SC_ENDING = 5
+    private val SC_ACHIEVE = 6
 
     private var screen = SC_TITLE
     private var currentAreaId: String = ""
@@ -59,6 +60,7 @@ class MainActivity : Activity() {
     override fun onBackPressed() {
         when (screen) {
             SC_AREA, SC_JOURNAL, SC_DEDUCE -> show(SC_MAP)
+            SC_ACHIEVE -> show(SC_TITLE)
             SC_MAP -> show(SC_TITLE)
             else -> super.onBackPressed()
         }
@@ -116,6 +118,8 @@ class MainActivity : Activity() {
             }
         }
 
+        col.addView(flatButton("実績を見る") { show(SC_ACHIEVE) })
+
         col.addView(card().apply {
             addView(head("あそびかた"))
             addView(body(
@@ -169,6 +173,7 @@ class MainActivity : Activity() {
         val col = column()
 
         col.addView(statusBar())
+        col.addView(imageBannerChain(listOf("ui_island"), "南の島", 16 to 9))
 
         col.addView(TextView(this).apply {
             text = "どこを探索する？"
@@ -329,6 +334,54 @@ class MainActivity : Activity() {
         })
 
         col.addView(bigButton("あたりを調べる", leafColor) { explore(a) })
+
+        // この土地の住人
+        val npc = GameData.npcAt(a.id)
+        if (npc != null) {
+            col.addView(card().apply {
+                addView(LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    addView(ImageView(this@MainActivity).apply {
+                        layoutParams = LinearLayout.LayoutParams(dp(90), dp(120))
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        setImageDrawable(Art.get(this@MainActivity, npc.drawable,
+                            npc.name, 240, 320))
+                    })
+                    addView(LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            leftMargin = dp(10)
+                        }
+                        addView(TextView(this@MainActivity).apply {
+                            text = npc.name
+                            textSize = 15f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(inkColor)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = npc.greeting
+                            textSize = 12f
+                            setTextColor(subColor)
+                            setPadding(0, dp(4), 0, 0)
+                        })
+                    })
+                })
+                addView(Button(this@MainActivity).apply {
+                    text = if (GameState.toldNpcs.contains(npc.id))
+                        "もう一度話しかける" else "話しかける（行動を消費しない）"
+                    textSize = 14f
+                    isAllCaps = false
+                    setTextColor(Color.WHITE)
+                    setBackgroundColor(sandColor)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
+                    ).apply { topMargin = dp(8) }
+                    setOnClickListener { talkTo(npc) }
+                })
+            })
+        }
+
         col.addView(flatButton("島マップへ戻る") { show(SC_MAP) })
 
         // このエリアで見つけたもの
@@ -349,6 +402,7 @@ class MainActivity : Activity() {
     private fun explore(a: GameData.Area) {
         GameState.turns++
         GameState.visitedAreas.add(a.id)
+        GameState.refreshAchievements(applicationContext)
 
         // このエリアに未発見の欠片があるか
         val fragIdx = GameState.fragmentAreaIds.withIndex()
@@ -400,6 +454,112 @@ class MainActivity : Activity() {
         )
         Toast.makeText(this, misses[rnd.nextInt(misses.size)], Toast.LENGTH_SHORT).show()
         if (!checkTimeOver()) show(SC_AREA)
+    }
+
+    /** 住人に話しかける。行動は消費しない */
+    private fun talkTo(npc: GameData.Npc) {
+        GameState.talkedNpcs.add(npc.id)
+
+        val sb = StringBuilder()
+        sb.append(npc.lore)
+
+        // 初回だけ、まだ見つけていない欠片の在り処を1つ教えてくれる
+        if (!GameState.toldNpcs.contains(npc.id)) {
+            val unfound = GameState.fragmentAreaIds.withIndex()
+                .filter { (i, _) -> !GameState.foundFragments.contains(i) }
+                .map { (_, id) -> id }
+                .filter { it != npc.areaId }
+                .distinct()
+            if (unfound.isNotEmpty()) {
+                val pick = unfound[Random(GameState.seed + npc.id.hashCode())
+                    .nextInt(unfound.size)]
+                sb.append("\n\n「そういえば、")
+                sb.append(GameData.area(pick).name)
+                sb.append("のあたりで、光るものを見かけたよ」")
+                GameState.toldNpcs.add(npc.id)
+            }
+        }
+
+        GameState.save(applicationContext)
+        val newly = GameState.refreshAchievements(applicationContext)
+
+        AlertDialog.Builder(this)
+            .setTitle(npc.name)
+            .setMessage(sb.toString())
+            .setPositiveButton("ありがとう") { _, _ ->
+                if (newly.isNotEmpty()) showAchievementToast(newly)
+                show(SC_AREA)
+            }
+            .show()
+    }
+
+    private fun showAchievementToast(list: List<GameData.Achievement>) {
+        Toast.makeText(this,
+            "実績を解除: " + list.joinToString("、") { it.name },
+            Toast.LENGTH_LONG).show()
+    }
+
+    // =========================================================
+    // 実績
+    // =========================================================
+    private fun buildAchieve(): View {
+        val col = column()
+        GameState.refreshAchievements(applicationContext)
+
+        col.addView(TextView(this).apply {
+            text = "実績"
+            textSize = 24f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(inkColor)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, dp(4))
+        })
+        val got = GameData.achievements.count { GameState.achievements.contains(it.id) }
+        col.addView(TextView(this).apply {
+            text = "$got / ${GameData.achievements.size} 解除"
+            textSize = 14f
+            setTextColor(seaColor)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
+        })
+
+        GameData.achievements.forEach { a ->
+            val unlocked = GameState.achievements.contains(a.id)
+            col.addView(card().apply {
+                addView(LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    addView(ImageView(this@MainActivity).apply {
+                        layoutParams = LinearLayout.LayoutParams(dp(64), dp(64))
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        alpha = if (unlocked) 1f else 0.25f
+                        setImageDrawable(Art.get(this@MainActivity, a.drawable,
+                            a.name, 200, 200))
+                    })
+                    addView(LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0,
+                            LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                            leftMargin = dp(12)
+                        }
+                        addView(TextView(this@MainActivity).apply {
+                            text = if (unlocked) a.name else "？？？"
+                            textSize = 16f
+                            setTypeface(null, Typeface.BOLD)
+                            setTextColor(if (unlocked) sandColor else subColor)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = a.desc
+                            textSize = 12f
+                            setTextColor(if (unlocked) inkColor else subColor)
+                            setPadding(0, dp(4), 0, 0)
+                        })
+                    })
+                })
+            })
+        }
+
+        col.addView(flatButton("タイトルへ") { show(SC_TITLE) })
+        return scroll(col)
     }
 
     // =========================================================
@@ -517,6 +677,7 @@ class MainActivity : Activity() {
             }
             GameState.clearCount++
             GameState.save(applicationContext)
+            GameState.refreshAchievements(applicationContext)
             show(SC_ENDING)
         } else {
             GameState.turns++
@@ -581,6 +742,7 @@ class MainActivity : Activity() {
             GameState.newGame(applicationContext)
             showStory()
         })
+        col.addView(flatButton("実績を見る") { show(SC_ACHIEVE) })
         col.addView(flatButton("タイトルへ") { show(SC_TITLE) })
         return scroll(col)
     }

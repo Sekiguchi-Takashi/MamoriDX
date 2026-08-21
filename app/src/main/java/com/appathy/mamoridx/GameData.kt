@@ -152,6 +152,74 @@ object GameData {
         }
     }
 
+
+    // =========================================================
+    // 島の人々（NPC）
+    // =========================================================
+    /**
+     * 各エリアに住人がいる。話しかけると、そのエリアの言い伝えを聞ける。
+     * 証言は「まだ見つけていない欠片がどのエリアにあるか」を1回だけ教えてくれる。
+     */
+    data class Npc(
+        val id: String,
+        val name: String,
+        val drawable: String,
+        val areaId: String,
+        val greeting: String,
+        val lore: String
+    )
+
+    val npcs: List<Npc> = listOf(
+        Npc("oldsailor", "老いた船乗り ハラウ", "npc_oldsailor", "pier",
+            "「おう、見ない顔だな。この桟橋は昔、宝を積んだ船が最後に停まった場所さ」",
+            "「羅針盤ってのはな、割れても方角を忘れねえ。欠片が七つ揃えば、島が自分から口を開くよ」"),
+        Npc("girl", "島の少女 レイア", "npc_girl", "beach",
+            "「こんにちは！ 果物いる？ ……あ、宝を探してるの？」",
+            "「おじいちゃんが言ってた。宝は『触れられた場所』か『誰も触れない場所』か、どっちかだって」"),
+        Npc("scholar", "学者 コルト", "npc_scholar", "ruins",
+            "「静かに。……いま、床の文様を写しているところだ」",
+            "「この遺跡は月の出ている間しか入れない。つまり、条件そのものが手がかりになる」"),
+        Npc("fisher", "漁師 マノ", "npc_fisher", "cave",
+            "「潮が引くとな、この洞窟の奥まで歩いていける。危ないから気をつけろよ」",
+            "「真水が湧く場所は島に二つだけだ。覚えておいて損はない」"),
+        Npc("child", "島の少年 タヴィ", "npc_child", "forest",
+            "「ねえ、宝探してるんでしょ！ ぼくも探してるんだ！」",
+            "「森の奥って、夜は入れないんだよ。だから夜のうちは別の場所を見たほうがいいと思う」"),
+        Npc("keeper", "灯台守 ミナ", "npc_keeper", "lighthouse",
+            "「ようこそ。ここからは島のほとんどが見渡せます」",
+            "「高い場所は二つ。灯台と、あとひとつ。低い場所を探すなら、ここは外していい」"),
+        Npc("parrot", "おしゃべりオウム ポポ", "npc_parrot", "waterfall",
+            "「ポポ！ タカラ、ドコ？ タカラ、ドコ？」",
+            "「ナナツ、ソロエロ！ ナナツ、ソロエロ！ ……ポポ、シッテル」")
+    )
+
+    fun npcAt(areaId: String): Npc? = npcs.firstOrNull { it.areaId == areaId }
+
+    // =========================================================
+    // 実績
+    // =========================================================
+    data class Achievement(val id: String, val name: String, val drawable: String,
+                           val desc: String)
+
+    val achievements: List<Achievement> = listOf(
+        Achievement("first_step", "はじめの一歩", "ach_first_step",
+            "最初のエリアを探索した"),
+        Achievement("all_areas", "島を歩き尽くす", "ach_all_areas",
+            "9つのエリアすべてを探索した"),
+        Achievement("night_owl", "夜更かし", "ach_night_owl",
+            "夜のあいだに探索した"),
+        Achievement("all_compass", "七つの羅針盤", "ach_all_compass",
+            "羅針盤の欠片を7つすべて集めた"),
+        Achievement("speedrun", "最短の航路", "ach_speedrun",
+            "20回以内の行動で宝に辿り着いた"),
+        Achievement("solo", "ひとりの航海", "ach_solo",
+            "ヒントを使わずに宝を見つけた"),
+        Achievement("team", "島の人々と", "ach_team",
+            "島の住人7人すべてと話した"),
+        Achievement("true_end", "真の結末", "ach_true_end",
+            "TRUE ENDに到達した")
+    )
+
     /** エンディング */
     data class Ending(val id: String, val title: String, val drawable: String, val body: String)
 

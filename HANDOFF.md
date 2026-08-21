@@ -1,6 +1,28 @@
 # 南国ゲーム『蒼海の秘宝 ～七つの羅針盤～』HANDOFF
 
-## 現在バージョン: v9.1（エリア画像13枚を配置）
+## 現在バージョン: v9.2（NPC7人＋実績8種＋画像17枚追加）
+
+## v9.2で追加した機能
+- **NPC**: 各エリアに住人がいる（GameData.npcs）。エリア画面に立ち絵＋挨拶を表示し、
+  「話しかける」で言い伝えを聞ける。**行動回数を消費しない**。
+  初回の会話でだけ「まだ見つけていない欠片があるエリア」を1つ教えてくれる（自分の居るエリアは除外）。
+  配置: 桟橋=船乗り / 海岸=少女 / 遺跡=学者 / 洞窟=漁師 / 森=少年 / 灯台=灯台守 / 滝=オウム
+  ※火山・神殿には住人なし
+- **実績8種**（GameData.achievements、GameState.achievements に周回をまたいで保持）:
+  first_step / all_areas / night_owl / all_compass / speedrun(20手以内) /
+  solo(ヒント0) / team(住人7人と会話) / true_end
+  `GameState.refreshAchievements()` を探索時・会話時・クリア時・実績画面表示時に呼ぶ
+- 画面IDに SC_ACHIEVE=6 を追加。タイトルとエンディングから開ける
+- マップ画面の上部に島の絵（ui_island）を表示
+
+## 画像の配置状況（v9.2・計約3.2MB）
+- エリア背景13枚（v9.1）: beach/forest/cave/lighthouse の 昼・夜・雨・夕暮れ
+- NPC立ち絵7枚: **白背景を外周からのフラッドフィルで透過**し、アルファ境界で切り詰め済み
+- 実績アイコン8枚、ui_title、ui_island
+- 未配置（色板で自動代替）: area_volcano / area_temple / area_waterfall / area_pier / area_ruins、
+  羅針盤の欠片7種、アイテム類、エンディング4種、guide_ai
+
+**PNGのままだと肥大化する。長辺640(NPC)〜1024(背景)・WebP quality82〜85 で処理すること。**
 
 ## 画像の配置状況（v9.1）
 配置済み（`app/src/main/res/drawable/*.webp`、長辺1024・quality82・計約2.5MB）:

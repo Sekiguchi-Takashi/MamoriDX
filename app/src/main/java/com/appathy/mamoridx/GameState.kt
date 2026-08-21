@@ -25,6 +25,9 @@ object GameState {
     var clearCount: Int = 0
     var hintUsed: Int = 0
     var started: Boolean = false
+    var talkedNpcs: MutableSet<String> = mutableSetOf()   // 話したNPC
+    var toldNpcs: MutableSet<String> = mutableSetOf()     // 証言をもらったNPC
+    var achievements: MutableSet<String> = mutableSetOf() // 解除済み実績（周回で保持）
 
     /** 見つけた欠片に対応する手がかりだけを返す */
     fun collectedClues(): List<GameData.Clue> =
@@ -45,6 +48,8 @@ object GameState {
         maxTurns = 40
         endingId = null
         hintUsed = 0
+        talkedNpcs = mutableSetOf()
+        toldNpcs = mutableSetOf()
         started = true
         save(ctx)
     }
@@ -74,6 +79,9 @@ object GameState {
         o.put("clear", clearCount)
         o.put("hint", hintUsed)
         o.put("started", started)
+        o.put("talked", JSONArray(talkedNpcs.toList()))
+        o.put("told", JSONArray(toldNpcs.toList()))
+        o.put("ach", JSONArray(achievements.toList()))
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .edit().putString(KEY, o.toString()).apply()
     }
@@ -108,9 +116,34 @@ object GameState {
             clearCount = o.optInt("clear", 0)
             hintUsed = o.optInt("hint", 0)
             started = o.optBoolean("started", false)
+            talkedNpcs = toStrList(o.optJSONArray("talked")).toMutableSet()
+            toldNpcs = toStrList(o.optJSONArray("told")).toMutableSet()
+            achievements = toStrList(o.optJSONArray("ach")).toMutableSet()
         } catch (e: Exception) {
             started = false
         }
+    }
+
+    /** 状況から実績を判定して解除する。戻り値は新たに解除されたもの */
+    fun refreshAchievements(ctx: Context): List<GameData.Achievement> {
+        val newly = mutableListOf<GameData.Achievement>()
+        fun unlock(id: String, cond: Boolean) {
+            if (cond && !achievements.contains(id)) {
+                achievements.add(id)
+                GameData.achievements.firstOrNull { it.id == id }?.let { newly.add(it) }
+            }
+        }
+        unlock("first_step", visitedAreas.isNotEmpty())
+        unlock("all_areas", visitedAreas.size >= GameData.areas.size)
+        unlock("night_owl", time == GameData.TIME_NIGHT && visitedAreas.isNotEmpty())
+        unlock("all_compass", foundFragments.size >= 7)
+        unlock("team", talkedNpcs.size >= GameData.npcs.size)
+        val cleared = endingId != null && endingId != "TIMEOVER"
+        unlock("speedrun", cleared && turns <= 20)
+        unlock("solo", cleared && hintUsed == 0)
+        unlock("true_end", endingId == "TRUE")
+        if (newly.isNotEmpty()) save(ctx)
+        return newly
     }
 
     fun clear(ctx: Context) {
