@@ -156,11 +156,11 @@ class MainActivity : Activity() {
     private fun showStory() {
         AlertDialog.Builder(this)
             .setTitle("蒼海の秘宝")
-            .setMessage(
+            .setView(picturePanel("ui_island", "南の島",
                 "潮に流れ着いたあなたが浜辺で拾ったのは、割れた羅針盤の欠片だった。\n\n" +
                 "裏には、こう刻まれている。\n" +
                 "『七つ揃えよ。さすれば島が語りだす』\n\n" +
-                "――さあ、探索をはじめよう。")
+                "――さあ、探索をはじめよう。"))
             .setPositiveButton("島へ向かう") { _, _ -> show(SC_MAP) }
             .setCancelable(false)
             .show()
@@ -169,20 +169,163 @@ class MainActivity : Activity() {
     // =========================================================
     // 島マップ
     // =========================================================
+    private var mapAsList = false   // 絵の地図 / 一覧 の切替
+
     private fun buildMap(): View {
+        val outer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(bgColor)
+        }
+
         val col = column()
-
         col.addView(statusBar())
-        col.addView(imageBannerChain(listOf("ui_island"), "南の島", 16 to 9))
 
-        col.addView(TextView(this).apply {
-            text = "どこを探索する？"
-            textSize = 17f
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(inkColor)
-            setPadding(0, dp(10), 0, dp(6))
+        // ---- 表示切替 ----
+        col.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(8) }
+            listOf("島の地図" to false, "一覧で選ぶ" to true).forEach { (label, asList) ->
+                addView(Button(this@MainActivity).apply {
+                    text = label
+                    textSize = 13f
+                    isAllCaps = false
+                    val sel = mapAsList == asList
+                    setTextColor(if (sel) Color.WHITE else subColor)
+                    setBackgroundColor(if (sel) seaColor else Color.parseColor("#E9EEF2"))
+                    layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f).apply {
+                        setMargins(dp(3), 0, dp(3), 0)
+                    }
+                    setOnClickListener {
+                        mapAsList = asList
+                        show(SC_MAP)
+                    }
+                })
+            }
         })
 
+        if (mapAsList) col.addView(buildAreaList()) else col.addView(buildIslandMap())
+
+        col.addView(flatButton("タイトルへ") { show(SC_TITLE) })
+
+        outer.addView(ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            addView(col)
+        })
+
+        // ---- 画面下に固定の操作バー ----
+        outer.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(panelColor)
+            setPadding(dp(8), dp(8), dp(8), dp(10))
+            addView(barButton("日誌", sandColor) { show(SC_JOURNAL) })
+            addView(barButton("推理", coralColor) { show(SC_DEDUCE) })
+            addView(barButton(
+                if (GameState.time == GameData.TIME_DAY) "夜を待つ" else "朝を待つ",
+                if (GameState.time == GameData.TIME_DAY) nightColor else seaColor) {
+                advanceTime()
+            })
+        })
+        return outer
+    }
+
+    private fun barButton(label: String, bg: Int, onClick: () -> Unit): Button =
+        Button(this).apply {
+            text = label
+            textSize = 14f
+            isAllCaps = false
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 0)
+            setTextColor(Color.WHITE)
+            setBackgroundColor(bg)
+            layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                setMargins(dp(4), 0, dp(4), 0)
+            }
+            setOnClickListener { onClick() }
+        }
+
+    /** 島の絵の上にピンを置き、タップで移動する */
+    private fun buildIslandMap(): View {
+        val w = resources.displayMetrics.widthPixels - dp(24)
+        val h = (w * 0.95f).toInt()
+
+        val frame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, h
+            ).apply { topMargin = dp(8) }
+        }
+        // 島そのものは描画して作る（端末幅に合わせて常に綺麗に出る）
+        frame.addView(ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT)
+            scaleType = ImageView.ScaleType.FIT_XY
+            setImageDrawable(IslandMap.draw(this@MainActivity, w, h,
+                GameState.time == GameData.TIME_NIGHT))
+        })
+
+        val pinW = dp(76)
+        val pinH = dp(52)
+        GameData.areas.forEach { a ->
+            val locked = (a.nightOnly && GameState.time != GameData.TIME_NIGHT) ||
+                (a.dayOnly && GameState.time != GameData.TIME_DAY)
+            val visited = GameState.visitedAreas.contains(a.id)
+            val hasMore = GameState.fragmentAreaIds.withIndex()
+                .any { (i, id) -> id == a.id && !GameState.foundFragments.contains(i) }
+
+            frame.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                layoutParams = FrameLayout.LayoutParams(pinW, pinH).apply {
+                    leftMargin = (a.mapX * w).toInt() - pinW / 2
+                    topMargin = (a.mapY * h).toInt() - pinH / 2
+                }
+                alpha = if (locked) 0.45f else 1f
+                addView(ImageView(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(26), dp(26))
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    setImageDrawable(Art.get(this@MainActivity,
+                        if (locked) "ui_lock"
+                        else if (!visited) "ui_marker_icon" else "ui_unlock",
+                        "", 100, 100))
+                })
+                addView(TextView(this@MainActivity).apply {
+                    text = a.name + if (hasMore && visited) " ◆" else ""
+                    textSize = 11f
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(Color.WHITE)
+                    setShadowLayer(6f, 0f, 0f, Color.BLACK)
+                    gravity = Gravity.CENTER
+                })
+                if (!locked) {
+                    setOnClickListener {
+                        currentAreaId = a.id
+                        show(SC_AREA)
+                    }
+                }
+            })
+        }
+
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        wrap.addView(frame)
+        wrap.addView(TextView(this).apply {
+            text = "行きたい場所のピンをタップしてください。" +
+                "鍵のかかった場所は、いまの時間帯では入れません。"
+            textSize = 12f
+            setTextColor(subColor)
+            setPadding(dp(2), dp(8), dp(2), 0)
+        })
+        return wrap
+    }
+
+    /** 従来の一覧表示 */
+    private fun buildAreaList(): View {
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         GameData.areas.forEach { a ->
             val locked = (a.nightOnly && GameState.time != GameData.TIME_NIGHT) ||
                 (a.dayOnly && GameState.time != GameData.TIME_DAY)
@@ -221,6 +364,7 @@ class MainActivity : Activity() {
                         }
                         textSize = 12f
                         setTextColor(if (visited) leafColor else subColor)
+                        gravity = Gravity.CENTER_VERTICAL
                     })
                 })
                 addView(TextView(this@MainActivity).apply {
@@ -246,17 +390,7 @@ class MainActivity : Activity() {
                 }
             })
         }
-
-        col.addView(bigButton("日誌を見る（手がかり）", sandColor) { show(SC_JOURNAL) })
-        col.addView(bigButton("推理する", coralColor) { show(SC_DEDUCE) })
-        col.addView(bigButton(
-            if (GameState.time == GameData.TIME_DAY) "夜を待つ" else "朝を待つ",
-            if (GameState.time == GameData.TIME_DAY) nightColor else seaColor) {
-            advanceTime()
-        })
-        col.addView(flatButton("タイトルへ") { show(SC_TITLE) })
-
-        return scroll(col)
+        return col
     }
 
     private fun attrLine(a: GameData.Area): String {
@@ -284,18 +418,72 @@ class MainActivity : Activity() {
                     LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
             addView(TextView(this@MainActivity).apply {
-                text = "羅針盤 ${GameState.foundFragments.size}/7"
-                textSize = 16f
+                text = "所持品 ${GameState.foundItems.size}/${GameData.items.size}"
+                textSize = 13f
+                setTextColor(Color.argb(230, 255, 255, 255))
+                gravity = Gravity.CENTER_VERTICAL
+            })
+        })
+
+        // 羅針盤の欠片を7個のドットで表示
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(8) }
+            addView(TextView(this@MainActivity).apply {
+                text = "羅針盤"
+                textSize = 12f
+                setTextColor(Color.argb(230, 255, 255, 255))
+            })
+            for (i in 0 until 7) {
+                addView(View(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(dp(14), dp(14)).apply {
+                        leftMargin = dp(5)
+                    }
+                    setBackgroundColor(
+                        if (GameState.foundFragments.contains(i)) sandColor
+                        else Color.argb(70, 255, 255, 255))
+                })
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = "  ${GameState.foundFragments.size}/7"
+                textSize = 13f
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(Color.WHITE)
             })
         })
+
+        // 残り行動をバーで表示
+        val left = (GameState.maxTurns - GameState.turns).coerceAtLeast(0)
+        val ratio = left.toFloat() / GameState.maxTurns
+        val barColor = when {
+            ratio <= 0.15f -> coralColor
+            ratio <= 0.35f -> sandColor
+            else -> Color.argb(210, 255, 255, 255)
+        }
         addView(TextView(this@MainActivity).apply {
-            text = "残り行動 ${GameState.maxTurns - GameState.turns} 回　" +
-                "所持品 ${GameState.foundItems.size}/${GameData.items.size}"
+            text = "残り行動 $left 回"
             textSize = 12f
-            setTextColor(Color.argb(220, 255, 255, 255))
-            setPadding(0, dp(4), 0, 0)
+            setTextColor(if (ratio <= 0.35f) barColor else Color.argb(230, 255, 255, 255))
+            setPadding(0, dp(8), 0, dp(3))
+        })
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(8))
+            addView(View(this@MainActivity).apply {
+                setBackgroundColor(barColor)
+                layoutParams = LinearLayout.LayoutParams(0, dp(8),
+                    left.toFloat().coerceAtLeast(0.01f))
+            })
+            addView(View(this@MainActivity).apply {
+                setBackgroundColor(Color.argb(60, 0, 0, 0))
+                layoutParams = LinearLayout.LayoutParams(0, dp(8),
+                    (GameState.maxTurns - left).toFloat().coerceAtLeast(0.01f))
+            })
         })
     }
 
@@ -328,6 +516,10 @@ class MainActivity : Activity() {
     // =========================================================
     private fun buildArea(): View {
         val a = GameData.area(currentAreaId)
+        val outer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(bgColor)
+        }
         val col = column()
 
         col.addView(imageBannerChain(areaImageNames(a), a.name))
@@ -345,8 +537,6 @@ class MainActivity : Activity() {
             setTextColor(inkColor)
             setPadding(0, 0, 0, dp(8))
         })
-
-        col.addView(bigButton("あたりを調べる", leafColor) { explore(a) })
 
         // この土地の住人
         val npc = GameData.npcAt(a.id)
@@ -395,8 +585,6 @@ class MainActivity : Activity() {
             })
         }
 
-        col.addView(flatButton("島マップへ戻る") { show(SC_MAP) })
-
         // このエリアで見つけたもの
         val foundHere = GameState.fragmentAreaIds.withIndex()
             .filter { (i, id) -> id == a.id && GameState.foundFragments.contains(i) }
@@ -425,7 +613,32 @@ class MainActivity : Activity() {
             })
         }
 
-        return scroll(col)
+        outer.addView(ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            addView(col)
+        })
+        outer.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(panelColor)
+            setPadding(dp(8), dp(8), dp(8), dp(10))
+            addView(Button(this@MainActivity).apply {
+                text = "あたりを調べる"
+                textSize = 15f
+                isAllCaps = false
+                setTypeface(null, Typeface.BOLD)
+                setPadding(0, 0, 0, 0)
+                setTextColor(Color.WHITE)
+                setBackgroundColor(leafColor)
+                layoutParams = LinearLayout.LayoutParams(0, dp(50), 2f).apply {
+                    setMargins(dp(4), 0, dp(4), 0)
+                }
+                setOnClickListener { explore(a) }
+            })
+            addView(barButton("日誌", sandColor) { show(SC_JOURNAL) })
+            addView(barButton("地図", seaColor) { show(SC_MAP) })
+        })
+        return outer
     }
 
     private fun explore(a: GameData.Area) {

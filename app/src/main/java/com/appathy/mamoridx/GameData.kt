@@ -24,46 +24,57 @@ object GameData {
         val manMade: Boolean,       // 人の手が入った場所
         val hasWater: Boolean,      // 真水がある
         val nightOnly: Boolean,     // 夜しか入れない
-        val dayOnly: Boolean        // 昼しか入れない
+        val dayOnly: Boolean,       // 昼しか入れない
+        val mapX: Float,            // 島マップ上の位置（0.0〜1.0）
+        val mapY: Float
     )
 
     val areas: List<Area> = listOf(
         Area("beach", "海岸", "area_beach",
             "白い砂に波が寄せる。打ち上げられた流木と貝殻が散らばっている。",
             seaside = true, highGround = false, manMade = false,
-            hasWater = false, nightOnly = false, dayOnly = false),
+            hasWater = false, nightOnly = false, dayOnly = false,
+            mapX = 0.29f, mapY = 0.76f),
         Area("forest", "森", "area_forest",
             "ざわめく緑の天蓋。葉の隙間から光が落ち、鳥の声が響く。",
             seaside = false, highGround = false, manMade = false,
-            hasWater = false, nightOnly = false, dayOnly = true),
+            hasWater = false, nightOnly = false, dayOnly = true,
+            mapX = 0.31f, mapY = 0.4f),
         Area("cave", "洞窟", "area_cave",
             "岩肌がひんやりと湿っている。奥から水の滴る音がする。",
             seaside = true, highGround = false, manMade = false,
-            hasWater = true, nightOnly = false, dayOnly = false),
+            hasWater = true, nightOnly = false, dayOnly = false,
+            mapX = 0.14f, mapY = 0.6f),
         Area("lighthouse", "灯台", "area_lighthouse",
             "赤白の塔が崖の上に立つ。潮風が強く吹き抜けていく。",
             seaside = true, highGround = true, manMade = true,
-            hasWater = false, nightOnly = false, dayOnly = false),
+            hasWater = false, nightOnly = false, dayOnly = false,
+            mapX = 0.84f, mapY = 0.3f),
         Area("volcano", "火山", "area_volcano",
             "黒い岩肌から熱気が立ちのぼる。山頂がかすかに赤く光っている。",
             seaside = false, highGround = true, manMade = false,
-            hasWater = false, nightOnly = false, dayOnly = true),
+            hasWater = false, nightOnly = false, dayOnly = true,
+            mapX = 0.5f, mapY = 0.2f),
         Area("temple", "神殿", "area_temple",
             "蔦に覆われた石の柱。苔むした階段の先に、暗い入口が口を開けている。",
             seaside = false, highGround = false, manMade = true,
-            hasWater = false, nightOnly = false, dayOnly = false),
+            hasWater = false, nightOnly = false, dayOnly = false,
+            mapX = 0.5f, mapY = 0.5f),
         Area("waterfall", "滝", "area_waterfall",
             "翡翠色の滝壺に水が落ち続ける。飛沫に小さな虹がかかっている。",
             seaside = false, highGround = true, manMade = false,
-            hasWater = true, nightOnly = false, dayOnly = false),
+            hasWater = true, nightOnly = false, dayOnly = false,
+            mapX = 0.66f, mapY = 0.38f),
         Area("pier", "桟橋", "area_pier",
             "潮に洗われた木の板が続く。舫われたカヌーが静かに揺れている。",
             seaside = true, highGround = false, manMade = true,
-            hasWater = false, nightOnly = false, dayOnly = false),
+            hasWater = false, nightOnly = false, dayOnly = false,
+            mapX = 0.6f, mapY = 0.79f),
         Area("ruins", "遺跡", "area_ruins",
             "砂に半ば埋もれた石柱。床に刻まれた円の文様が、まだかすかに読み取れる。",
             seaside = false, highGround = false, manMade = true,
-            hasWater = false, nightOnly = true, dayOnly = false)
+            hasWater = false, nightOnly = true, dayOnly = false,
+            mapX = 0.76f, mapY = 0.57f)
     )
 
     fun area(id: String): Area = areas.first { it.id == id }
