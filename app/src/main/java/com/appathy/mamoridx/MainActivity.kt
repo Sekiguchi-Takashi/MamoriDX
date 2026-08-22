@@ -248,118 +248,88 @@ class MainActivity : Activity() {
             setOnClickListener { onClick() }
         }
 
-    /** 島の絵の上にピンを置き、タップで移動する */
+    /** 島の地図。背景とピンを同じ座標系で描くので位置ズレが起きない */
     private fun buildIslandMap(): View {
         val screenW = resources.displayMetrics.widthPixels - dp(24)
         val night = GameState.time == GameData.TIME_NIGHT
         val mapName = if (night) "map_island_night" else "map_island"
         val hasArt = Art.hasImage(this, mapName)
 
-        // 俯瞰マップの絵がある場合は、縦いっぱいまで拡大して横スクロールで見せる。
-        // 絵が無ければ従来どおり描画マップにフォールバックする。
-        val h: Int
-        val w: Int
+        val mapH: Int
+        val mapW: Int
+        val bg: android.graphics.drawable.Drawable
         if (hasArt) {
-            h = (screenW * 1.0f).toInt()
+            mapH = screenW
             val art = Art.get(this, mapName, "島の地図", 1280, 698)
             val ar = art.intrinsicWidth.toFloat() /
                 art.intrinsicHeight.toFloat().coerceAtLeast(1f)
-            w = (h * ar).toInt().coerceAtLeast(screenW)
+            mapW = (mapH * ar).toInt().coerceAtLeast(screenW)
+            bg = art
         } else {
-            h = (screenW * 0.95f).toInt()
-            w = screenW
+            mapH = (screenW * 0.95f).toInt()
+            mapW = screenW
+            bg = IslandMap.draw(this, mapW, mapH, night)
         }
 
-        val frame = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(w, h)
-        }
-        frame.addView(ImageView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT)
-            scaleType = ImageView.ScaleType.FIT_XY
-            setImageDrawable(
-                if (hasArt) Art.get(this@MainActivity, mapName, "島の地図", 1280, 698)
-                else IslandMap.draw(this@MainActivity, w, h, night))
-        })
-
-        val pinW = dp(76)
-        val pinH = dp(52)
-        GameData.areas.forEach { a ->
+        val pins = GameData.areas.map { a ->
             val locked = (a.nightOnly && GameState.time != GameData.TIME_NIGHT) ||
                 (a.dayOnly && GameState.time != GameData.TIME_DAY)
             val visited = GameState.visitedAreas.contains(a.id)
-            val hasMore = GameState.fragmentAreaIds.withIndex()
+            val marked = visited && GameState.fragmentAreaIds.withIndex()
                 .any { (i, id) -> id == a.id && !GameState.foundFragments.contains(i) }
-
-            frame.addView(LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                layoutParams = FrameLayout.LayoutParams(pinW, pinH).apply {
-                    leftMargin = (a.mapX * w).toInt() - pinW / 2
-                    topMargin = (a.mapY * h).toInt() - pinH / 2
-                }
-                alpha = if (locked) 0.45f else 1f
-                addView(ImageView(this@MainActivity).apply {
-                    layoutParams = LinearLayout.LayoutParams(dp(26), dp(26))
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    setImageDrawable(Art.get(this@MainActivity,
-                        if (locked) "ui_lock"
-                        else if (!visited) "ui_marker_icon" else "ui_unlock",
-                        "", 100, 100))
-                })
-                addView(TextView(this@MainActivity).apply {
-                    text = a.name + if (hasMore && visited) " ◆" else ""
-                    textSize = 11f
-                    setTypeface(null, Typeface.BOLD)
-                    setTextColor(Color.WHITE)
-                    setShadowLayer(6f, 0f, 0f, Color.BLACK)
-                    gravity = Gravity.CENTER
-                })
-                if (!locked) {
-                    setOnClickListener {
-                        currentAreaId = a.id
-                        show(SC_AREA)
-                    }
-                }
-            })
+            IslandMapView.Pin(
+                areaId = a.id,
+                label = a.name,
+                x = a.mapX,
+                y = a.mapY,
+                icon = Art.get(this,
+                    if (locked) "ui_lock" else if (!visited) "ui_marker_icon" else "ui_unlock",
+                    "", 120, 120).mutate(),
+                locked = locked,
+                marked = marked
+            )
         }
 
-        val wrap = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        val mapView = IslandMapView(this, mapW, mapH, bg, pins) { areaId ->
+            currentAreaId = areaId
+            show(SC_AREA)
         }
 
-        if (w > screenW) {
+        val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        if (mapW > screenW) {
             val scroller = HorizontalScrollView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, h
+                    LinearLayout.LayoutParams.MATCH_PARENT, mapH
                 ).apply { topMargin = dp(8) }
                 isHorizontalScrollBarEnabled = false
-                addView(frame)
+                addView(mapView, FrameLayout.LayoutParams(mapW, mapH))
             }
-            // 最初に見ている場所（直前に居たエリア）が中央に来るように寄せる
+            // 直前に居た場所（無ければ島の中央）を画面中央に寄せる
             val focus = GameData.areas.firstOrNull { it.id == currentAreaId }
             val fx = focus?.mapX ?: 0.5f
-            scroller.post {
-                scroller.scrollTo(
-                    (fx * w - screenW / 2f).toInt().coerceIn(0, (w - screenW).coerceAtLeast(0)),
-                    0)
-            }
+            val target = (fx * mapW - screenW / 2f).toInt()
+                .coerceIn(0, (mapW - screenW).coerceAtLeast(0))
+            scroller.viewTreeObserver.addOnGlobalLayoutListener(
+                object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        scroller.scrollTo(target, 0)
+                        scroller.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    }
+                })
             wrap.addView(scroller)
         } else {
-            wrap.addView(frame.apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, h
-                ).apply { topMargin = dp(8) }
+            wrap.addView(mapView, LinearLayout.LayoutParams(mapW, mapH).apply {
+                topMargin = dp(8)
             })
         }
 
         wrap.addView(TextView(this).apply {
-            text = if (w > screenW)
+            text = if (mapW > screenW)
                 "地図は横にスクロールできます。行きたい場所のピンをタップしてください。" +
-                "鍵のかかった場所は、いまの時間帯では入れません。"
+                "鍵の場所は、いまの時間帯では入れません。"
             else "行きたい場所のピンをタップしてください。" +
-                "鍵のかかった場所は、いまの時間帯では入れません。"
+                "鍵の場所は、いまの時間帯では入れません。"
             textSize = 12f
             setTextColor(subColor)
             setPadding(dp(2), dp(8), dp(2), 0)
