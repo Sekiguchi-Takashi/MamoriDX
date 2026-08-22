@@ -11,8 +11,8 @@ android {
         applicationId = "com.appathy.mamoridx"
         minSdk = 26
         targetSdk = 34
-        versionCode = 22
-        versionName = "9.7"
+        versionCode = 23
+        versionName = "9.8"
     }
 
     signingConfigs {

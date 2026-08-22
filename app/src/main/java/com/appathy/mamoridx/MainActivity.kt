@@ -9,6 +9,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -249,22 +250,37 @@ class MainActivity : Activity() {
 
     /** 島の絵の上にピンを置き、タップで移動する */
     private fun buildIslandMap(): View {
-        val w = resources.displayMetrics.widthPixels - dp(24)
-        val h = (w * 0.95f).toInt()
+        val screenW = resources.displayMetrics.widthPixels - dp(24)
+        val night = GameState.time == GameData.TIME_NIGHT
+        val mapName = if (night) "map_island_night" else "map_island"
+        val hasArt = Art.hasImage(this, mapName)
+
+        // 俯瞰マップの絵がある場合は、縦いっぱいまで拡大して横スクロールで見せる。
+        // 絵が無ければ従来どおり描画マップにフォールバックする。
+        val h: Int
+        val w: Int
+        if (hasArt) {
+            h = (screenW * 1.0f).toInt()
+            val art = Art.get(this, mapName, "島の地図", 1280, 698)
+            val ar = art.intrinsicWidth.toFloat() /
+                art.intrinsicHeight.toFloat().coerceAtLeast(1f)
+            w = (h * ar).toInt().coerceAtLeast(screenW)
+        } else {
+            h = (screenW * 0.95f).toInt()
+            w = screenW
+        }
 
         val frame = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, h
-            ).apply { topMargin = dp(8) }
+            layoutParams = FrameLayout.LayoutParams(w, h)
         }
-        // 島そのものは描画して作る（端末幅に合わせて常に綺麗に出る）
         frame.addView(ImageView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT)
             scaleType = ImageView.ScaleType.FIT_XY
-            setImageDrawable(IslandMap.draw(this@MainActivity, w, h,
-                GameState.time == GameData.TIME_NIGHT))
+            setImageDrawable(
+                if (hasArt) Art.get(this@MainActivity, mapName, "島の地図", 1280, 698)
+                else IslandMap.draw(this@MainActivity, w, h, night))
         })
 
         val pinW = dp(76)
@@ -312,9 +328,37 @@ class MainActivity : Activity() {
         val wrap = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
-        wrap.addView(frame)
+
+        if (w > screenW) {
+            val scroller = HorizontalScrollView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, h
+                ).apply { topMargin = dp(8) }
+                isHorizontalScrollBarEnabled = false
+                addView(frame)
+            }
+            // 最初に見ている場所（直前に居たエリア）が中央に来るように寄せる
+            val focus = GameData.areas.firstOrNull { it.id == currentAreaId }
+            val fx = focus?.mapX ?: 0.5f
+            scroller.post {
+                scroller.scrollTo(
+                    (fx * w - screenW / 2f).toInt().coerceIn(0, (w - screenW).coerceAtLeast(0)),
+                    0)
+            }
+            wrap.addView(scroller)
+        } else {
+            wrap.addView(frame.apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, h
+                ).apply { topMargin = dp(8) }
+            })
+        }
+
         wrap.addView(TextView(this).apply {
-            text = "行きたい場所のピンをタップしてください。" +
+            text = if (w > screenW)
+                "地図は横にスクロールできます。行きたい場所のピンをタップしてください。" +
+                "鍵のかかった場所は、いまの時間帯では入れません。"
+            else "行きたい場所のピンをタップしてください。" +
                 "鍵のかかった場所は、いまの時間帯では入れません。"
             textSize = 12f
             setTextColor(subColor)
